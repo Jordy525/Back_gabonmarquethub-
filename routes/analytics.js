@@ -235,7 +235,7 @@ router.get('/stats/global', async (req, res) => {
             SELECT 
                 c.nom as categorie,
                 COUNT(DISTINCT p.id) as nombre_produits,
-                COALESCE(SUM(sp.vues), 0) as total_vues,
+                COALESCE(COUNT(sp.id), 0) as total_vues,
                 COALESCE(AVG(p.note_moyenne), 0) as note_moyenne
             FROM categories c
             LEFT JOIN produits p ON c.id = p.categorie_id
@@ -293,7 +293,7 @@ router.get('/user/stats', authenticateToken, async (req, res) => {
         const [supplierStats] = await db.execute(`
             SELECT 
                 COUNT(DISTINCT p.id) as nombre_produits,
-                COALESCE(SUM(sp.vues), 0) as total_vues,
+                COALESCE(COUNT(sp.id), 0) as total_vues,
                 COALESCE(SUM(sp.clics), 0) as total_clics,
                 COALESCE(SUM(sp.ajouts_favoris), 0) as total_favoris,
                 COALESCE(SUM(sp.partages), 0) as total_partages,

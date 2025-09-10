@@ -1,98 +1,166 @@
-const { 
-    createMessageNotification, 
-    createConversationNotification 
-} = require('../routes/notifications');
+const db = require('../config/database');
 
 class NotificationService {
-    constructor(socketManager = null) {
-        this.socketManager = socketManager;
+  // Créer une notification admin
+  async createAdminNotification(notificationData) {
+    const connection = await db.getConnection();
+    
+    try {
+      const {
+        type,
+        category,
+        title,
+        message,
+        priority = 'medium',
+        data = null,
+        userId = null,
+        productId = null,
+        orderId = null
+      } = notificationData;
+
+      const [result] = await connection.execute(`
+        INSERT INTO admin_notifications (
+          type, category, title, message, priority, data, 
+          user_id, product_id, order_id, is_read, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW())
+      `, [
+        type, category, title, message, priority, 
+        data ? JSON.stringify(data) : null,
+        userId, productId, orderId
+      ]);
+
+      console.log(`🔔 Notification admin créée: ${title} (ID: ${result.insertId})`);
+      return result.insertId;
+
+    } catch (error) {
+      console.error('❌ Erreur création notification admin:', error);
+      throw error;
+    } finally {
+      connection.release();
     }
+  }
 
-    // Créer une notification pour un nouveau message
-    async notifyNewMessage(senderId, recipientId, conversationId, messageContent) {
-        try {
-            const notification = await createMessageNotification(
-                recipientId,
-                senderId,
-                conversationId,
-                messageContent,
-                this.socketManager
-            );
+  // Notifier un nouvel utilisateur inscrit
+  async notifyNewUser(userData) {
+    const { id, nom, prenom, email, role_id } = userData;
+    const roleName = role_id === 1 ? 'Acheteur' : role_id === 2 ? 'Fournisseur' : 'Utilisateur';
+    
+    return this.createAdminNotification({
+      type: 'user_management',
+      category: 'new_user',
+      title: 'Nouvel utilisateur inscrit',
+      message: `${roleName}: ${prenom} ${nom} (${email}) s'est inscrit sur la plateforme`,
+      priority: 'medium',
+      data: { user: userData },
+      userId: id
+    });
+  }
 
-            console.log(`📢 Notification message créée: ${notification.id} pour utilisateur ${recipientId}`);
-            return notification;
-        } catch (error) {
-            console.error('Erreur création notification message:', error);
-            return null;
-        }
-    }
+  // Notifier une demande de vérification d'entreprise
+  async notifyVerificationRequest(entrepriseData) {
+    const { id, nom_entreprise, secteur, utilisateur_id } = entrepriseData;
+    
+    return this.createAdminNotification({
+      type: 'user_management',
+      category: 'verification_request',
+      title: 'Demande de vérification d\'entreprise',
+      message: `L'entreprise "${nom_entreprise}" (${secteur}) demande une vérification`,
+      priority: 'high',
+      data: { entreprise: entrepriseData },
+      userId: utilisateur_id
+    });
+  }
 
-    // Créer une notification pour une nouvelle conversation
-    async notifyNewConversation(initiatorId, recipientId, conversationId, subject) {
-        try {
-            const notification = await createConversationNotification(
-                recipientId,
-                initiatorId,
-                conversationId,
-                subject,
-                this.socketManager
-            );
+  // Notifier un nouveau produit à modérer
+  async notifyNewProduct(productData) {
+    const { id, nom, prix_unitaire, fournisseur_id } = productData;
+    
+    return this.createAdminNotification({
+      type: 'product_management',
+      category: 'product_moderation',
+      title: 'Nouveau produit à modérer',
+      message: `Produit "${nom}" (${prix_unitaire}€) nécessite une modération`,
+      priority: 'medium',
+      data: { product: productData },
+      productId: id
+    });
+  }
 
-            console.log(`📢 Notification conversation créée: ${notification.id} pour utilisateur ${recipientId}`);
-            return notification;
-        } catch (error) {
-            console.error('Erreur création notification conversation:', error);
-            return null;
-        }
-    }
+  // Notifier un produit signalé
+  async notifyProductReport(productData, reportReason) {
+    const { id, nom } = productData;
+    
+    return this.createAdminNotification({
+      type: 'product_management',
+      category: 'product_report',
+      title: 'Produit signalé',
+      message: `Le produit "${nom}" a été signalé: ${reportReason}`,
+      priority: 'high',
+      data: { product: productData, reason: reportReason },
+      productId: id
+    });
+  }
 
-    // Marquer les notifications comme lues
-    async markAsRead(userId, notificationIds = null) {
-        try {
-            if (this.socketManager) {
-                return await this.socketManager.markNotificationsAsRead(userId, notificationIds);
-            }
-            return false;
-        } catch (error) {
-            console.error('Erreur marquage notifications lues:', error);
-            return false;
-        }
-    }
+  // Notifier une erreur système
+  async notifySystemError(errorData) {
+    const { module, error, severity = 'medium' } = errorData;
+    const priority = severity === 'critical' ? 'urgent' : 
+                   severity === 'high' ? 'high' : 'medium';
+    
+    return this.createAdminNotification({
+      type: 'system',
+      category: 'system_error',
+      title: 'Erreur système',
+      message: `Erreur dans le module ${module}: ${error}`,
+      priority,
+      data: errorData
+    });
+  }
 
-    // Envoyer une mise à jour du compteur de notifications non lues
-    async updateUnreadCount(userId) {
-        try {
-            if (this.socketManager) {
-                return await this.socketManager.sendUnreadCountUpdate(userId);
-            }
-            return 0;
-        } catch (error) {
-            console.error('Erreur mise à jour compteur:', error);
-            return 0;
-        }
-    }
+  // Notifier une alerte de sécurité
+  async notifySecurityAlert(alertData) {
+    const { type, description, ip, userId } = alertData;
+    
+    return this.createAdminNotification({
+      type: 'system',
+      category: 'security_alert',
+      title: 'Alerte de sécurité',
+      message: `${type}: ${description}${ip ? ` (IP: ${ip})` : ''}`,
+      priority: 'urgent',
+      data: alertData,
+      userId
+    });
+  }
 
-    // Envoyer une notification personnalisée
-    async sendCustomNotification(userId, title, message, type = 'info', metadata = null) {
-        try {
-            const { createNotification } = require('../routes/notifications');
-            
-            const notification = await createNotification(
-                userId,
-                title,
-                message,
-                type,
-                metadata,
-                this.socketManager
-            );
+  // Notifier une commande en attente
+  async notifyOrderIssue(orderData) {
+    const { id, total, status, userId } = orderData;
+    
+    return this.createAdminNotification({
+      type: 'order_management',
+      category: 'order_issue',
+      title: 'Commande en attente',
+      message: `Commande #${id} (${total}€) - Statut: ${status}`,
+      priority: 'high',
+      data: orderData,
+      orderId: id,
+      userId
+    });
+  }
 
-            console.log(`📢 Notification personnalisée créée: ${notification.id} pour utilisateur ${userId}`);
-            return notification;
-        } catch (error) {
-            console.error('Erreur création notification personnalisée:', error);
-            return null;
-        }
-    }
+  // Notifier des statistiques de performance
+  async notifyPerformanceStats(statsData) {
+    const { responseTime, memoryUsage, cpuUsage } = statsData;
+    
+    return this.createAdminNotification({
+      type: 'system',
+      category: 'performance_stats',
+      title: 'Rapport de performance',
+      message: `Temps de réponse: ${responseTime}s, Mémoire: ${memoryUsage}%, CPU: ${cpuUsage}%`,
+      priority: 'low',
+      data: statsData
+    });
+  }
 }
 
-module.exports = NotificationService;
+module.exports = new NotificationService();

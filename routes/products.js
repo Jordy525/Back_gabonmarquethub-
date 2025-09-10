@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 const { requireActiveSupplier } = require('../middleware/supplierStatus');
+const supplierNotificationService = require('../services/supplierNotificationService');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -387,6 +388,32 @@ router.post('/', upload.array('images', 10), authenticateToken, requireRole([2])
         }
 
         await connection.commit();
+
+        // Créer une notification admin pour le nouveau produit
+        try {
+            await notificationService.notifyNewProduct({
+                id: productId,
+                nom,
+                prix_unitaire: parseFloat(prix_unitaire),
+                fournisseur_id: entreprises[0].id
+            });
+            console.log(`🔔 Notification admin créée pour nouveau produit: ${nom}`);
+        } catch (notificationError) {
+            console.error('❌ Erreur création notification admin:', notificationError);
+            // Ne pas faire échouer la création du produit si la notification échoue
+        }
+
+        // Créer une notification fournisseur pour le produit en attente
+        try {
+            await supplierNotificationService.notifyProductPendingModeration(req.user.id, {
+                productId: productId,
+                productName: nom
+            });
+            console.log(`🔔 Notification fournisseur créée pour produit en attente: ${nom}`);
+        } catch (notificationError) {
+            console.error('❌ Erreur création notification fournisseur:', notificationError);
+            // Ne pas faire échouer la création du produit si la notification échoue
+        }
 
         res.status(201).json({
             message: 'Produit créé avec succès',

@@ -535,7 +535,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
     // Compter les vues totales (utiliser la table statistiques_vues)
     const [viewsResult] = await db.execute(
-      'SELECT COALESCE(SUM(sp.vues), 0) as total_vues FROM statistiques_vues sp JOIN produits p ON sp.record_id = p.id WHERE sp.table_name = "produits" AND p.fournisseur_id = ?',
+      'SELECT COUNT(*) as total_vues FROM statistiques_vues sp JOIN produits p ON sp.record_id = p.id WHERE sp.table_name = "produits" AND p.fournisseur_id = ?',
       [entrepriseId]
     );
 

@@ -1,6 +1,20 @@
 const express = require('express');
 const db = require('../config/database');
 const { authenticateToken, requireRole } = require('../middleware/auth');
+const { 
+  createAdminNotification,
+  notifyNewUser,
+  notifyVerificationRequest,
+  notifyUserSuspension,
+  notifyUserReport,
+  notifyProductModeration,
+  notifyProductReport,
+  notifyProductModificationRequest,
+  notifySystemError,
+  notifySecurityAlert,
+  notifyPerformanceStats,
+  notifyMaintenance
+} = require('./admin-notifications');
 const router = express.Router();
 
 // Middleware pour vérifier les droits admin (role_id = 3)
@@ -3220,6 +3234,125 @@ router.get('/documents-stats', authenticateToken, requireAdmin, async (req, res)
       success: false,
       message: 'Erreur serveur'
     });
+  }
+});
+
+// ==================== ROUTES DE NOTIFICATIONS ADMIN ====================
+
+// Intégrer les routes de notifications admin
+router.use('/notifications', require('./admin-notifications').router);
+
+// ==================== ACTIONS RAPIDES POUR NOTIFICATIONS ====================
+
+// Approuver un utilisateur depuis une notification
+router.patch('/users/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    await db.execute(`
+      UPDATE utilisateurs 
+      SET statut = 'actif', updated_at = NOW()
+      WHERE id = ? AND statut = 'en_attente'
+    `, [userId]);
+
+    // Créer une notification de confirmation
+    await createAdminNotification(
+      'user_management',
+      'user_approved',
+      'Utilisateur approuvé',
+      `L'utilisateur ID ${userId} a été approuvé avec succès`,
+      'medium',
+      { userId },
+      userId
+    );
+
+    res.json({ message: 'Utilisateur approuvé avec succès' });
+  } catch (error) {
+    console.error('Erreur approbation utilisateur:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'approbation de l\'utilisateur' });
+  }
+});
+
+// Suspendre un utilisateur depuis une notification
+router.patch('/users/:id/suspend', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    const { reason } = req.body;
+    
+    await db.execute(`
+      UPDATE utilisateurs 
+      SET statut = 'suspendu', suspension_reason = ?, updated_at = NOW()
+      WHERE id = ?
+    `, [reason || 'Raison non spécifiée', userId]);
+
+    // Notifier la suspension
+    await notifyUserSuspension(userId, { id: userId }, reason);
+
+    res.json({ message: 'Utilisateur suspendu avec succès' });
+  } catch (error) {
+    console.error('Erreur suspension utilisateur:', error);
+    res.status(500).json({ error: 'Erreur lors de la suspension de l\'utilisateur' });
+  }
+});
+
+// Approuver un produit depuis une notification
+router.patch('/products/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const productId = req.params.id;
+    
+    await db.execute(`
+      UPDATE produits 
+      SET statut_moderation = 'approuve', moderated_at = NOW(), updated_at = NOW()
+      WHERE id = ? AND statut_moderation = 'en_attente'
+    `, [productId]);
+
+    // Créer une notification de confirmation
+    await createAdminNotification(
+      'product_management',
+      'product_approved',
+      'Produit approuvé',
+      `Le produit ID ${productId} a été approuvé avec succès`,
+      'medium',
+      { productId },
+      null,
+      productId
+    );
+
+    res.json({ message: 'Produit approuvé avec succès' });
+  } catch (error) {
+    console.error('Erreur approbation produit:', error);
+    res.status(500).json({ error: 'Erreur lors de l\'approbation du produit' });
+  }
+});
+
+// Rejeter un produit depuis une notification
+router.patch('/products/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const { reason } = req.body;
+    
+    await db.execute(`
+      UPDATE produits 
+      SET statut_moderation = 'rejete', moderation_reason = ?, moderated_at = NOW(), updated_at = NOW()
+      WHERE id = ?
+    `, [reason || 'Raison non spécifiée', productId]);
+
+    // Créer une notification de confirmation
+    await createAdminNotification(
+      'product_management',
+      'product_rejected',
+      'Produit rejeté',
+      `Le produit ID ${productId} a été rejeté. Raison: ${reason}`,
+      'medium',
+      { productId, reason },
+      null,
+      productId
+    );
+
+    res.json({ message: 'Produit rejeté avec succès' });
+  } catch (error) {
+    console.error('Erreur rejet produit:', error);
+    res.status(500).json({ error: 'Erreur lors du rejet du produit' });
   }
 });
 

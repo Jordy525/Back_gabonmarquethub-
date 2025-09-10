@@ -66,7 +66,7 @@ app.use('/api/users', require('./routes/users'));
 app.use('/api/users', require('./routes/settings'));
 app.use('/api/users/dashboard', require('./routes/dashboard'));
 app.use('/api/users/favorites', require('./routes/favorites'));
-app.use('/api/notifications', require('./routes/notifications-simple').router);
+app.use('/api/notifications', require('./routes/user-notifications'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/categories', require('./routes/categories'));
 
@@ -197,7 +197,9 @@ app.get('/socket-test', (req, res) => {
         connectedClients: io.engine.clientsCount,
         transport: 'websocket',
         cors: {
-            origins: ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000"]
+            origins: process.env.CORS_ORIGIN 
+                ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+                : ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000"]
         },
         timestamp: new Date().toISOString()
     });

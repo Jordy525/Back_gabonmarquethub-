@@ -83,4 +83,7 @@ const requireRole = (roles) => {
     };
 };
 
-module.exports = { authenticateToken, optionalAuth, requireRole };
+// Alias pour les administrateurs (role_id = 3)
+const requireAdmin = requireRole([3]);
+
+module.exports = { authenticateToken, optionalAuth, requireRole, requireAdmin };
