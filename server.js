@@ -283,7 +283,7 @@ app.get('/socket-test', (req, res) => {
         cors: {
             origins: process.env.CORS_ORIGIN 
                 ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-                : ["http://localhost:5173", "http://localhost:8080", "http://localhost:3001"]
+                : ["http://localhost:5173", "http://localhost:8080", "http://localhost:3001","https://front-gabonmarkethub1.vercel.app"]
         },
         timestamp: new Date().toISOString()
     });
