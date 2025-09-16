@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql-zigh-portfolio.alwaysdata.net
--- Generation Time: Sep 15, 2025 at 06:01 PM
+-- Generation Time: Sep 15, 2025 at 11:01 PM
 -- Server version: 10.11.13-MariaDB
 -- PHP Version: 7.4.33
 
@@ -20,65 +20,6 @@ SET time_zone = "+00:00";
 --
 -- Database: `zigh-portfolio_gabmarkethub`
 --
-
-DELIMITER $$
---
--- Procedures
---
-CREATE DEFINER=`404304`@`%` PROCEDURE `sp_update_daily_stats` ()   BEGIN
-  -- Mettre à jour les vues des 30 derniers jours
-  UPDATE `produits` p
-  SET `vues_30j` = (
-    SELECT COALESCE(SUM(`vues`), 0)
-    FROM `statistiques_produits` sp
-    WHERE sp.`produit_id` = p.`id`
-    AND sp.`date` >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-  );
-  
-  -- Mettre à jour le score de popularité
-  UPDATE `produits` 
-  SET `score_popularite` = (
-    (`vues_30j` * 0.3) + 
-    (`ventes_30j` * 0.7) + 
-    (`note_moyenne` * 10) + 
-    (`nombre_avis` * 0.5)
-  );
-  
-  -- Désactiver les offres expirées
-  UPDATE `produits` 
-  SET `est_en_offre` = FALSE 
-  WHERE `date_fin_promo` < NOW() 
-  AND `est_en_offre` = TRUE;
-END$$
-
-DELIMITER ;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `abonnements`
---
-
-CREATE TABLE `abonnements` (
-  `id` int(11) NOT NULL,
-  `nom` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `prix_mensuel` decimal(10,2) NOT NULL,
-  `max_produits` int(11) DEFAULT NULL,
-  `commission_reduite` decimal(5,2) DEFAULT 0.00,
-  `support_prioritaire` tinyint(1) DEFAULT 0,
-  `analytics_avances` tinyint(1) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `abonnements`
---
-
-INSERT INTO `abonnements` (`id`, `nom`, `description`, `prix_mensuel`, `max_produits`, `commission_reduite`, `support_prioritaire`, `analytics_avances`, `created_at`) VALUES
-(1, 'Basique', 'Abonnement de base', 0.00, 50, 0.00, 0, 0, '2025-08-01 14:25:30'),
-(2, 'Premium', 'Abonnement premium', 49.99, 500, 1.00, 1, 1, '2025-08-01 14:25:30'),
-(3, 'Enterprise', 'Abonnement entreprise', 199.99, NULL, 2.00, 1, 1, '2025-08-01 14:25:30');
 
 -- --------------------------------------------------------
 
@@ -244,84 +185,6 @@ INSERT INTO `articles_blog` (`id`, `titre`, `slug`, `extrait`, `contenu`, `image
 -- --------------------------------------------------------
 
 --
--- Table structure for table `attributs`
---
-
-CREATE TABLE `attributs` (
-  `id` int(11) NOT NULL,
-  `nom` varchar(100) NOT NULL,
-  `type` enum('couleur','taille','matiere','autre') NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `attributs`
---
-
-INSERT INTO `attributs` (`id`, `nom`, `type`, `created_at`) VALUES
-(1, 'Couleur', 'couleur', '2025-08-01 14:25:30'),
-(2, 'Taille', 'taille', '2025-08-01 14:25:30'),
-(3, 'Matière', 'matiere', '2025-08-01 14:25:30');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `audit_trail`
---
-
-CREATE TABLE `audit_trail` (
-  `id` int(11) NOT NULL,
-  `utilisateur_id` int(11) DEFAULT NULL,
-  `table_name` varchar(50) NOT NULL,
-  `record_id` int(11) NOT NULL,
-  `action` enum('CREATE','UPDATE','DELETE') NOT NULL,
-  `old_values` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`old_values`)),
-  `new_values` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`new_values`)),
-  `ip_address` varchar(45) DEFAULT NULL,
-  `user_agent` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `avis`
---
-
-CREATE TABLE `avis` (
-  `id` int(11) NOT NULL,
-  `acheteur_id` int(11) NOT NULL,
-  `fournisseur_id` int(11) NOT NULL,
-  `note` int(11) NOT NULL CHECK (`note` >= 1 and `note` <= 5),
-  `commentaire` text DEFAULT NULL,
-  `statut` enum('publie','modere','rejete') DEFAULT 'publie',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Triggers `avis`
---
-DELIMITER $$
-CREATE TRIGGER `update_note_fournisseur` AFTER INSERT ON `avis` FOR EACH ROW BEGIN
-    UPDATE entreprises 
-    SET note_moyenne = (
-        SELECT AVG(note) 
-        FROM avis 
-        WHERE fournisseur_id = NEW.fournisseur_id AND statut = 'publie'
-    ),
-    nombre_avis = (
-        SELECT COUNT(*) 
-        FROM avis 
-        WHERE fournisseur_id = NEW.fournisseur_id AND statut = 'publie'
-    )
-    WHERE id = NEW.fournisseur_id;
-END
-$$
-DELIMITER ;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `avis_produits`
 --
 
@@ -347,48 +210,6 @@ CREATE TABLE `avis_produits` (
 
 INSERT INTO `avis_produits` (`id`, `produit_id`, `utilisateur_id`, `note`, `commentaire`, `achat_verifie`, `date_creation`, `statut`, `date_moderation`, `moderateur_id`, `raison_rejet`, `ip_address`, `user_agent`) VALUES
 (3, 17, 44, 4, 'Se produit est tres ben durable et confortable', 0, '2025-09-03 09:54:28', 'approuve', NULL, NULL, NULL, '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36 Edg/139.0.0.0');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `avis_produits_ameliore`
---
-
-CREATE TABLE `avis_produits_ameliore` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `utilisateur_id` int(11) NOT NULL,
-  `note` int(11) NOT NULL CHECK (`note` >= 1 and `note` <= 5),
-  `commentaire` text DEFAULT NULL,
-  `achat_verifie` tinyint(1) DEFAULT 0,
-  `statut` enum('en_attente','approuve','rejete') DEFAULT 'en_attente',
-  `date_creation` timestamp NULL DEFAULT current_timestamp(),
-  `date_moderation` timestamp NULL DEFAULT NULL,
-  `moderateur_id` int(11) DEFAULT NULL,
-  `raison_rejet` text DEFAULT NULL,
-  `ip_address` varchar(45) DEFAULT NULL,
-  `user_agent` text DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `campagnes_marketing`
---
-
-CREATE TABLE `campagnes_marketing` (
-  `id` int(11) NOT NULL,
-  `nom` varchar(255) NOT NULL,
-  `description` text DEFAULT NULL,
-  `type` enum('email','banniere','popup','notification') NOT NULL,
-  `contenu` text NOT NULL,
-  `date_debut` datetime NOT NULL,
-  `date_fin` datetime NOT NULL,
-  `budget` decimal(10,2) DEFAULT 0.00,
-  `cible` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`cible`)),
-  `statut` enum('brouillon','active','pausee','terminee') DEFAULT 'brouillon',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -585,66 +406,6 @@ INSERT INTO `categories` (`id`, `nom`, `slug`, `description`, `image`, `parent_i
 -- --------------------------------------------------------
 
 --
--- Table structure for table `certifications`
---
-
-CREATE TABLE `certifications` (
-  `id` int(11) NOT NULL,
-  `nom` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `logo` varchar(255) DEFAULT NULL,
-  `organisme` varchar(100) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `certifications`
---
-
-INSERT INTO `certifications` (`id`, `nom`, `description`, `logo`, `organisme`, `created_at`) VALUES
-(1, 'ISO 9001', 'Certification qualité', NULL, 'ISO', '2025-08-01 14:25:30'),
-(2, 'CE', 'Conformité européenne', NULL, 'Union Européenne', '2025-08-01 14:25:30'),
-(3, 'Bio', 'Agriculture biologique', NULL, 'Ecocert', '2025-08-01 14:25:30');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `certifications_produits`
---
-
-CREATE TABLE `certifications_produits` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `nom_certification` varchar(100) NOT NULL,
-  `organisme` varchar(100) DEFAULT NULL,
-  `numero_certificat` varchar(100) DEFAULT NULL,
-  `date_obtention` date DEFAULT NULL,
-  `date_expiration` date DEFAULT NULL,
-  `fichier_certificat` varchar(255) DEFAULT NULL,
-  `verifie` tinyint(1) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `conditions_commerciales`
---
-
-CREATE TABLE `conditions_commerciales` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `type_condition` enum('livraison','retour','garantie') NOT NULL,
-  `titre` varchar(100) NOT NULL,
-  `description` text NOT NULL,
-  `valeur` varchar(100) DEFAULT NULL,
-  `ordre` int(11) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `conversations`
 --
 
@@ -673,92 +434,6 @@ INSERT INTO `conversations` (`id`, `acheteur_id`, `fournisseur_id`, `produit_id`
 (25, 29, 28, NULL, 'supplier_contact', 'ouverte', '2025-08-25 11:00:55', '2025-08-25 15:07:36', '2025-08-25 15:07:36', 0, 0, 0, 'normale', NULL),
 (42, 44, 28, NULL, 'Contact avec SHOP_service', 'ouverte', '2025-08-27 10:47:58', '2025-09-03 13:23:42', '2025-09-03 13:23:42', 0, 0, 0, 'normale', NULL),
 (43, 44, 52, NULL, 'Conversation avec Alissa AI', 'ouverte', '2025-09-12 17:50:01', '2025-09-12 17:50:32', '2025-09-12 17:50:32', 0, 1, 0, 'normale', NULL);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `conversation_participants`
---
-
-CREATE TABLE `conversation_participants` (
-  `id` int(11) NOT NULL,
-  `conversation_id` int(11) NOT NULL,
-  `utilisateur_id` int(11) NOT NULL,
-  `role` enum('acheteur','fournisseur','admin') NOT NULL,
-  `derniere_lecture` timestamp NULL DEFAULT NULL,
-  `notifications_actives` tinyint(1) DEFAULT 1,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `coupons_reduction`
---
-
-CREATE TABLE `coupons_reduction` (
-  `id` int(11) NOT NULL,
-  `code` varchar(50) NOT NULL,
-  `type` enum('pourcentage','montant_fixe') NOT NULL,
-  `valeur` decimal(10,2) NOT NULL,
-  `montant_minimum` decimal(10,2) DEFAULT 0.00,
-  `utilisations_max` int(11) DEFAULT NULL,
-  `utilisations_actuelles` int(11) DEFAULT 0,
-  `date_debut` date NOT NULL,
-  `date_fin` date NOT NULL,
-  `actif` tinyint(1) DEFAULT 1,
-  `fournisseur_id` int(11) DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `devis`
---
-
-CREATE TABLE `devis` (
-  `id` int(11) NOT NULL,
-  `numero_devis` varchar(50) NOT NULL,
-  `acheteur_id` int(11) NOT NULL,
-  `fournisseur_id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `quantite` int(11) NOT NULL,
-  `prix_unitaire` decimal(10,2) NOT NULL,
-  `total_ht` decimal(10,2) NOT NULL,
-  `tva` decimal(10,2) DEFAULT 0.00,
-  `total_ttc` decimal(10,2) NOT NULL,
-  `validite_jours` int(11) DEFAULT 30,
-  `statut` enum('brouillon','envoye','accepte','refuse','expire') DEFAULT 'brouillon',
-  `notes` text DEFAULT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `devises`
---
-
-CREATE TABLE `devises` (
-  `id` int(11) NOT NULL,
-  `code` varchar(3) NOT NULL,
-  `nom` varchar(50) NOT NULL,
-  `symbole` varchar(5) NOT NULL,
-  `taux_change` decimal(10,6) DEFAULT 1.000000,
-  `principale` tinyint(1) DEFAULT 0,
-  `actif` tinyint(1) DEFAULT 1,
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `devises`
---
-
-INSERT INTO `devises` (`id`, `code`, `nom`, `symbole`, `taux_change`, `principale`, `actif`, `updated_at`) VALUES
-(1, 'EUR', 'Euro', '€', 1.000000, 1, 1, '2025-08-01 14:25:30'),
-(2, 'USD', 'Dollar américain', '$', 1.100000, 0, 1, '2025-08-01 14:25:30'),
-(3, 'GBP', 'Livre sterling', '£', 0.850000, 0, 1, '2025-08-01 14:25:30');
 
 -- --------------------------------------------------------
 
@@ -798,26 +473,6 @@ INSERT INTO `documents_entreprise` (`id`, `entreprise_id`, `type_document`, `nom
 -- --------------------------------------------------------
 
 --
--- Table structure for table `documents_utilisateur`
---
-
-CREATE TABLE `documents_utilisateur` (
-  `id` int(11) NOT NULL,
-  `utilisateur_id` int(11) NOT NULL,
-  `type_document` enum('registre_commerce','piece_identite','justificatif_domicile','autorisation_commerciale') NOT NULL,
-  `nom_fichier` varchar(255) NOT NULL,
-  `chemin_fichier` varchar(500) NOT NULL,
-  `statut_validation` enum('en_attente','approuve','rejete') DEFAULT 'en_attente',
-  `commentaire_admin` text DEFAULT NULL,
-  `date_soumission` timestamp NULL DEFAULT current_timestamp(),
-  `date_validation` timestamp NULL DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `email_notifications`
 --
 
@@ -844,24 +499,6 @@ INSERT INTO `email_notifications` (`id`, `utilisateur_id`, `type_notification`, 
 (11, 56, 'password_reset', 'Réinitialisation de votre mot de passe - GabMarketHub', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n                <div style=\"background-color: #f8f9fa; padding: 20px; text-align: center;\">\n                    <h1 style=\"color: #dc2626; margin: 0;\">GabMarketHub</h1>\n                </div>\n                \n                <div style=\"padding: 30px 20px;\">\n                    <h2 style=\"color: #333;\">Réinitialisation de mot de passe</h2>\n                    \n                    <p style=\"color: #666; line-height: 1.6;\">\n                        Bonjour jordy zigh,<br><br>\n                        Vous avez demandé la réinitialisation de votre mot de passe. \n                        Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe :\n                    </p>\n                    \n                    <div style=\"text-align: center; margin: 30px 0;\">\n                        <a href=\"http://localhost:8080/reset-password?token=d01a9a5bd48c4e728ef9bdde49f1c83d0d2b3fac73f19eb6160a03d469cd77dc\" \n                           style=\"background-color: #dc2626; color: white; padding: 12px 30px; \n                                  text-decoration: none; border-radius: 5px; display: inline-block;\">\n                            Réinitialiser mon mot de passe\n                        </a>\n                    </div>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br>\n                        <a href=\"http://localhost:8080/reset-password?token=d01a9a5bd48c4e728ef9bdde49f1c83d0d2b3fac73f19eb6160a03d469cd77dc\">http://localhost:8080/reset-password?token=d01a9a5bd48c4e728ef9bdde49f1c83d0d2b3fac73f19eb6160a03d469cd77dc</a>\n                    </p>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        ⏰ Ce lien expire dans <strong>1 heure</strong>\n                    </p>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        Si vous n\'avez pas demandé cette réinitialisation, ignorez cet email.\n                    </p>\n                </div>\n                \n                <div style=\"background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666;\">\n                    © 2025 GabMarketHub. Tous droits réservés.\n                </div>\n            </div>\n        ', 'failed', 1, 'Invalid login: 535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials ffacd0b85a97d-3e7607870cfsm14697608f8f.19 - gsmtp', '2025-09-14 17:12:15', NULL),
 (12, 56, 'password_reset', 'Réinitialisation de votre mot de passe - GabMarketHub', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n                <div style=\"background-color: #f8f9fa; padding: 20px; text-align: center;\">\n                    <h1 style=\"color: #dc2626; margin: 0;\">GabMarketHub</h1>\n                </div>\n                \n                <div style=\"padding: 30px 20px;\">\n                    <h2 style=\"color: #333;\">Réinitialisation de mot de passe</h2>\n                    \n                    <p style=\"color: #666; line-height: 1.6;\">\n                        Bonjour jordy zigh,<br><br>\n                        Vous avez demandé la réinitialisation de votre mot de passe. \n                        Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe :\n                    </p>\n                    \n                    <div style=\"text-align: center; margin: 30px 0;\">\n                        <a href=\"http://localhost:8080/reset-password?token=88d385b7cf33172a77fe08e730b222f860ec68c7a01cf72bf7bbf03f0df7e8f4\" \n                           style=\"background-color: #dc2626; color: white; padding: 12px 30px; \n                                  text-decoration: none; border-radius: 5px; display: inline-block;\">\n                            Réinitialiser mon mot de passe\n                        </a>\n                    </div>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br>\n                        <a href=\"http://localhost:8080/reset-password?token=88d385b7cf33172a77fe08e730b222f860ec68c7a01cf72bf7bbf03f0df7e8f4\">http://localhost:8080/reset-password?token=88d385b7cf33172a77fe08e730b222f860ec68c7a01cf72bf7bbf03f0df7e8f4</a>\n                    </p>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        ⏰ Ce lien expire dans <strong>1 heure</strong>\n                    </p>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        Si vous n\'avez pas demandé cette réinitialisation, ignorez cet email.\n                    </p>\n                </div>\n                \n                <div style=\"background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666;\">\n                    © 2025 GabMarketHub. Tous droits réservés.\n                </div>\n            </div>\n        ', 'sent', 0, NULL, '2025-09-14 17:44:54', '2025-09-14 17:44:57'),
 (13, 56, 'password_reset', 'Réinitialisation de votre mot de passe - GabMarketHub', '\n            <div style=\"font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;\">\n                <div style=\"background-color: #f8f9fa; padding: 20px; text-align: center;\">\n                    <h1 style=\"color: #dc2626; margin: 0;\">GabMarketHub</h1>\n                </div>\n                \n                <div style=\"padding: 30px 20px;\">\n                    <h2 style=\"color: #333;\">Réinitialisation de mot de passe</h2>\n                    \n                    <p style=\"color: #666; line-height: 1.6;\">\n                        Bonjour jordy zigh,<br><br>\n                        Vous avez demandé la réinitialisation de votre mot de passe. \n                        Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe :\n                    </p>\n                    \n                    <div style=\"text-align: center; margin: 30px 0;\">\n                        <a href=\"http://localhost:8080/reset-password?token=c5a26d712aee1ae8f45436824bb311d08c7c1bc57251f19fdbe7327f5b99f7a2\" \n                           style=\"background-color: #dc2626; color: white; padding: 12px 30px; \n                                  text-decoration: none; border-radius: 5px; display: inline-block;\">\n                            Réinitialiser mon mot de passe\n                        </a>\n                    </div>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :<br>\n                        <a href=\"http://localhost:8080/reset-password?token=c5a26d712aee1ae8f45436824bb311d08c7c1bc57251f19fdbe7327f5b99f7a2\">http://localhost:8080/reset-password?token=c5a26d712aee1ae8f45436824bb311d08c7c1bc57251f19fdbe7327f5b99f7a2</a>\n                    </p>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        ⏰ Ce lien expire dans <strong>1 heure</strong>\n                    </p>\n                    \n                    <p style=\"color: #666; font-size: 14px;\">\n                        Si vous n\'avez pas demandé cette réinitialisation, ignorez cet email.\n                    </p>\n                </div>\n                \n                <div style=\"background-color: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #666;\">\n                    © 2025 GabMarketHub. Tous droits réservés.\n                </div>\n            </div>\n        ', 'sent', 0, NULL, '2025-09-14 17:51:49', '2025-09-14 17:51:52');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `encheres`
---
-
-CREATE TABLE `encheres` (
-  `id` int(11) NOT NULL,
-  `acheteur_id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `quantite_demandee` int(11) NOT NULL,
-  `prix_max` decimal(10,2) NOT NULL,
-  `description` text DEFAULT NULL,
-  `date_limite` datetime NOT NULL,
-  `statut` enum('active','terminee','annulee') DEFAULT 'active',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -1009,39 +646,6 @@ INSERT INTO `favoris` (`id`, `utilisateur_id`, `produit_id`, `created_at`) VALUE
 -- --------------------------------------------------------
 
 --
--- Table structure for table `fournisseurs_abonnements`
---
-
-CREATE TABLE `fournisseurs_abonnements` (
-  `id` int(11) NOT NULL,
-  `fournisseur_id` int(11) NOT NULL,
-  `abonnement_id` int(11) NOT NULL,
-  `date_debut` date NOT NULL,
-  `date_fin` date NOT NULL,
-  `statut` enum('actif','expire','annule') DEFAULT 'actif',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `fournisseurs_certifications`
---
-
-CREATE TABLE `fournisseurs_certifications` (
-  `id` int(11) NOT NULL,
-  `fournisseur_id` int(11) NOT NULL,
-  `certification_id` int(11) NOT NULL,
-  `numero_certificat` varchar(100) DEFAULT NULL,
-  `date_obtention` date NOT NULL,
-  `date_expiration` date DEFAULT NULL,
-  `fichier_certificat` varchar(255) DEFAULT NULL,
-  `verifie` tinyint(1) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `gdpr_consentements`
 --
 
@@ -1053,20 +657,6 @@ CREATE TABLE `gdpr_consentements` (
   `ip_address` varchar(45) NOT NULL,
   `user_agent` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `historique_prix`
---
-
-CREATE TABLE `historique_prix` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `ancien_prix` decimal(10,2) NOT NULL,
-  `nouveau_prix` decimal(10,2) NOT NULL,
-  `date_changement` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
@@ -1121,30 +711,6 @@ INSERT INTO `images_produits` (`id`, `produit_id`, `url`, `alt_text`, `type_imag
 (30, 10, '/uploads/products/product-1756909822851-701499143.jpg', 'IMG-20241225-WA0057.jpg', 'principale', NULL, NULL, 136188, 0, 1, '2025-09-03 14:30:23'),
 (31, 10, '/uploads/products/product-1756909822852-270006633.jpg', 'IMG-20241225-WA0060.jpg', 'galerie', NULL, NULL, 127055, 1, 0, '2025-09-03 14:30:23'),
 (32, 10, '/uploads/products/product-1756909822855-120345462.jpg', 'IMG-20241225-WA0067.jpg', 'galerie', NULL, NULL, 87966, 2, 0, '2025-09-03 14:30:23');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `langues`
---
-
-CREATE TABLE `langues` (
-  `id` int(11) NOT NULL,
-  `code` varchar(2) NOT NULL,
-  `nom` varchar(50) NOT NULL,
-  `nom_natif` varchar(50) NOT NULL,
-  `principale` tinyint(1) DEFAULT 0,
-  `actif` tinyint(1) DEFAULT 1
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `langues`
---
-
-INSERT INTO `langues` (`id`, `code`, `nom`, `nom_natif`, `principale`, `actif`) VALUES
-(1, 'fr', 'Français', 'Français', 1, 1),
-(2, 'en', 'Anglais', 'English', 0, 1),
-(3, 'es', 'Espagnol', 'Español', 0, 1);
 
 -- --------------------------------------------------------
 
@@ -1284,101 +850,6 @@ DELIMITER ;
 -- --------------------------------------------------------
 
 --
--- Table structure for table `message_attachments`
---
-
-CREATE TABLE `message_attachments` (
-  `id` int(11) NOT NULL,
-  `message_id` int(11) NOT NULL,
-  `filename` varchar(255) NOT NULL,
-  `original_filename` varchar(255) NOT NULL,
-  `file_path` varchar(500) NOT NULL,
-  `file_size` int(11) NOT NULL,
-  `mime_type` varchar(100) NOT NULL,
-  `uploaded_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `message_files`
---
-
-CREATE TABLE `message_files` (
-  `id` int(11) NOT NULL,
-  `message_id` int(11) NOT NULL,
-  `nom_original` varchar(255) NOT NULL,
-  `nom_stockage` varchar(255) NOT NULL,
-  `url` varchar(500) NOT NULL,
-  `taille` int(11) NOT NULL,
-  `type_mime` varchar(100) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `message_notifications`
---
-
-CREATE TABLE `message_notifications` (
-  `id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `message_id` int(11) NOT NULL,
-  `conversation_id` int(11) NOT NULL,
-  `is_read` tinyint(1) DEFAULT 0,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `read_at` timestamp NULL DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `message_reactions`
---
-
-CREATE TABLE `message_reactions` (
-  `id` int(11) NOT NULL,
-  `message_id` int(11) NOT NULL,
-  `utilisateur_id` int(11) NOT NULL,
-  `emoji` varchar(10) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `message_read_status`
---
-
-CREATE TABLE `message_read_status` (
-  `id` int(11) NOT NULL,
-  `message_id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `read_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `methodes_livraison_produit`
---
-
-CREATE TABLE `methodes_livraison_produit` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `methode` varchar(50) NOT NULL,
-  `cout_estime` decimal(10,2) DEFAULT NULL,
-  `delai_min` int(11) DEFAULT NULL,
-  `delai_max` int(11) DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `actif` tinyint(1) DEFAULT 1,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `notifications`
 --
 
@@ -1452,49 +923,6 @@ INSERT INTO `notifications` (`id`, `utilisateur_id`, `titre`, `message`, `type`,
 -- --------------------------------------------------------
 
 --
--- Table structure for table `offres_encheres`
---
-
-CREATE TABLE `offres_encheres` (
-  `id` int(11) NOT NULL,
-  `enchere_id` int(11) NOT NULL,
-  `fournisseur_id` int(11) NOT NULL,
-  `prix_propose` decimal(10,2) NOT NULL,
-  `delai_livraison` int(11) NOT NULL,
-  `commentaire` text DEFAULT NULL,
-  `acceptee` tinyint(1) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `parametres_site`
---
-
-CREATE TABLE `parametres_site` (
-  `id` int(11) NOT NULL,
-  `cle` varchar(100) NOT NULL,
-  `valeur` text DEFAULT NULL,
-  `description` text DEFAULT NULL,
-  `type` enum('text','number','boolean','json') DEFAULT 'text',
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `parametres_site`
---
-
-INSERT INTO `parametres_site` (`id`, `cle`, `valeur`, `description`, `type`, `updated_at`) VALUES
-(1, 'commission_pourcentage', '5.0', 'Pourcentage de commission sur les ventes', 'number', '2025-08-01 14:25:30'),
-(2, 'moq_minimum', '1', 'Quantité minimum par défaut', 'number', '2025-09-02 15:33:28'),
-(3, 'devise_principale', 'EUR', 'Devise principale du site', 'text', '2025-08-01 14:25:30'),
-(4, 'email_contact', 'contact@monsite.com', 'Email de contact principal', 'text', '2025-08-01 14:25:30'),
-(6, 'methodes_livraison_disponibles', '[\"DHL\", \"FedEx\", \"UPS\", \"TNT\", \"Bateau\", \"Avion\", \"Train\", \"Camion\"]', 'Méthodes de livraison disponibles', 'json', '2025-08-02 00:57:58');
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `participants_evenements`
 --
 
@@ -1532,71 +960,6 @@ CREATE TABLE `password_reset_tokens` (
 
 INSERT INTO `password_reset_tokens` (`id`, `utilisateur_id`, `token`, `expires_at`, `used`, `used_at`, `created_at`) VALUES
 (4, 56, 'c5a26d712aee1ae8f45436824bb311d08c7c1bc57251f19fdbe7327f5b99f7a2', '2025-09-14 19:51:49', 1, '2025-09-14 19:53:01', '2025-09-14 17:51:49');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `photos_entreprise`
---
-
-CREATE TABLE `photos_entreprise` (
-  `id` int(11) NOT NULL,
-  `entreprise_id` int(11) NOT NULL,
-  `type_photo` enum('entrepot','personnel','produits','facade','autre') NOT NULL,
-  `nom_fichier` varchar(255) NOT NULL,
-  `chemin_fichier` varchar(500) NOT NULL,
-  `description` text DEFAULT NULL,
-  `ordre_affichage` int(11) DEFAULT 0,
-  `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `prix_degressifs`
---
-
-CREATE TABLE `prix_degressifs` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `quantite_min` int(11) NOT NULL,
-  `quantite_max` int(11) DEFAULT NULL,
-  `prix_unitaire` decimal(10,2) NOT NULL,
-  `devise` varchar(3) DEFAULT 'EUR',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `product_reports`
---
-
-CREATE TABLE `product_reports` (
-  `id` int(11) NOT NULL,
-  `product_id` int(11) NOT NULL,
-  `reporter_id` int(11) NOT NULL,
-  `reason` enum('contenu_inapproprie','fausse_information','prix_suspect','qualite_douteuse','autre') NOT NULL,
-  `description` text DEFAULT NULL,
-  `status` enum('en_attente','traite','rejete') DEFAULT 'en_attente',
-  `handled_by` int(11) DEFAULT NULL,
-  `handled_at` timestamp NULL DEFAULT NULL,
-  `admin_notes` text DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Triggers `product_reports`
---
-DELIMITER $$
-CREATE TRIGGER `update_product_reports_count` AFTER INSERT ON `product_reports` FOR EACH ROW BEGIN
-    UPDATE produits 
-    SET signalements_count = signalements_count + 1,
-        last_signalement = NOW()
-    WHERE id = NEW.product_id;
-END
-$$
-DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -1716,35 +1079,6 @@ DELIMITER ;
 -- --------------------------------------------------------
 
 --
--- Table structure for table `produits_attributs`
---
-
-CREATE TABLE `produits_attributs` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `valeur_attribut_id` int(11) NOT NULL,
-  `prix_supplement` decimal(10,2) DEFAULT 0.00,
-  `stock_supplement` int(11) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `recommandations`
---
-
-CREATE TABLE `recommandations` (
-  `id` int(11) NOT NULL,
-  `utilisateur_id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `score` decimal(5,4) NOT NULL,
-  `type` enum('collaborative','contenu','populaire','historique') NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `reponses_avis`
 --
 
@@ -1838,54 +1172,6 @@ INSERT INTO `secteurs_activite` (`id`, `nom`, `description`, `created_at`) VALUE
 -- --------------------------------------------------------
 
 --
--- Table structure for table `segments_clients`
---
-
-CREATE TABLE `segments_clients` (
-  `id` int(11) NOT NULL,
-  `nom` varchar(100) NOT NULL,
-  `description` text DEFAULT NULL,
-  `criteres` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL CHECK (json_valid(`criteres`)),
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `seo_meta`
---
-
-CREATE TABLE `seo_meta` (
-  `id` int(11) NOT NULL,
-  `table_name` varchar(50) NOT NULL,
-  `record_id` int(11) NOT NULL,
-  `meta_title` varchar(255) DEFAULT NULL,
-  `meta_description` text DEFAULT NULL,
-  `meta_keywords` varchar(500) DEFAULT NULL,
-  `canonical_url` varchar(255) DEFAULT NULL,
-  `robots` varchar(100) DEFAULT 'index,follow',
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `sessions_utilisateurs`
---
-
-CREATE TABLE `sessions_utilisateurs` (
-  `id` varchar(128) NOT NULL,
-  `utilisateur_id` int(11) DEFAULT NULL,
-  `ip_address` varchar(45) NOT NULL,
-  `user_agent` text DEFAULT NULL,
-  `payload` text NOT NULL,
-  `last_activity` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `signalements_avis`
 --
 
@@ -1898,22 +1184,6 @@ CREATE TABLE `signalements_avis` (
   `date_signalement` timestamp NULL DEFAULT current_timestamp(),
   `statut` enum('en_attente','traite','rejete') DEFAULT 'en_attente'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `specifications_techniques`
---
-
-CREATE TABLE `specifications_techniques` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `nom_specification` varchar(100) NOT NULL,
-  `valeur_specification` text NOT NULL,
-  `unite` varchar(50) DEFAULT NULL,
-  `ordre` int(11) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -1980,131 +1250,6 @@ CREATE TABLE `statistiques_vues` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `system_messages`
---
-
-CREATE TABLE `system_messages` (
-  `id` int(11) NOT NULL,
-  `title` varchar(255) NOT NULL,
-  `content` text NOT NULL,
-  `message_type` enum('info','warning','success','error') DEFAULT 'info',
-  `target_audience` enum('all','buyers','suppliers','admins') DEFAULT 'all',
-  `created_by` int(11) NOT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `expires_at` timestamp NULL DEFAULT NULL,
-  `is_active` tinyint(1) DEFAULT 1,
-  `priority` int(11) DEFAULT 0
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `system_message_reads`
---
-
-CREATE TABLE `system_message_reads` (
-  `id` int(11) NOT NULL,
-  `system_message_id` int(11) NOT NULL,
-  `user_id` int(11) NOT NULL,
-  `read_at` timestamp NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `system_settings`
---
-
-CREATE TABLE `system_settings` (
-  `id` int(11) NOT NULL,
-  `setting_key` varchar(100) NOT NULL,
-  `setting_value` text DEFAULT NULL,
-  `setting_type` enum('string','number','boolean','json') DEFAULT 'string',
-  `description` text DEFAULT NULL,
-  `category` varchar(50) DEFAULT 'general',
-  `is_public` tinyint(1) DEFAULT 0,
-  `updated_by` int(11) DEFAULT NULL,
-  `created_at` timestamp NULL DEFAULT current_timestamp(),
-  `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `system_settings`
---
-
-INSERT INTO `system_settings` (`id`, `setting_key`, `setting_value`, `setting_type`, `description`, `category`, `is_public`, `updated_by`, `created_at`, `updated_at`) VALUES
-(1, 'site_name', 'GabMarketHub', 'string', 'Nom du site', 'general', 1, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(2, 'site_description', 'Plateforme e-commerce B2B', 'string', 'Description du site', 'general', 1, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(3, 'maintenance_mode', 'false', 'boolean', 'Mode maintenance', 'system', 0, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(4, 'max_upload_size', '10485760', 'number', 'Taille max upload (bytes)', 'system', 0, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(5, 'session_timeout', '1800', 'number', 'Timeout session admin (secondes)', 'security', 0, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(6, 'max_login_attempts', '5', 'number', 'Tentatives de connexion max', 'security', 0, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(7, 'lockout_duration', '900', 'number', 'Durée de verrouillage (secondes)', 'security', 0, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(8, 'email_notifications', 'true', 'boolean', 'Notifications email activées', 'notifications', 0, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(9, 'auto_approve_products', 'false', 'boolean', 'Approbation automatique des produits', 'moderation', 0, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45'),
-(10, 'min_order_amount', '1000', 'number', 'Montant minimum de commande (FCFA)', 'orders', 1, NULL, '2025-08-13 14:39:45', '2025-08-13 14:39:45');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `tentatives_connexion`
---
-
-CREATE TABLE `tentatives_connexion` (
-  `id` int(11) NOT NULL,
-  `email` varchar(255) NOT NULL,
-  `ip_address` varchar(45) NOT NULL,
-  `user_agent` text DEFAULT NULL,
-  `succes` tinyint(1) DEFAULT 0,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `traductions`
---
-
-CREATE TABLE `traductions` (
-  `id` int(11) NOT NULL,
-  `table_name` varchar(50) NOT NULL,
-  `field_name` varchar(50) NOT NULL,
-  `record_id` int(11) NOT NULL,
-  `langue_id` int(11) NOT NULL,
-  `contenu` text NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `transporteurs`
---
-
-CREATE TABLE `transporteurs` (
-  `id` int(11) NOT NULL,
-  `nom` varchar(100) NOT NULL,
-  `logo` varchar(255) DEFAULT NULL,
-  `site_web` varchar(255) DEFAULT NULL,
-  `api_url` varchar(255) DEFAULT NULL,
-  `api_key` varchar(255) DEFAULT NULL,
-  `actif` tinyint(1) DEFAULT 1,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `transporteurs`
---
-
-INSERT INTO `transporteurs` (`id`, `nom`, `logo`, `site_web`, `api_url`, `api_key`, `actif`, `created_at`) VALUES
-(1, 'Colissimo', NULL, NULL, NULL, NULL, 1, '2025-08-01 14:25:30'),
-(2, 'Chronopost', NULL, NULL, NULL, NULL, 1, '2025-08-01 14:25:30'),
-(3, 'DHL', NULL, NULL, NULL, NULL, 1, '2025-08-01 14:25:30'),
-(4, 'UPS', NULL, NULL, NULL, NULL, 1, '2025-08-01 14:25:30');
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `types_entreprise`
 --
 
@@ -2150,20 +1295,6 @@ INSERT INTO `types_entreprise` (`id`, `nom`, `description`, `created_at`) VALUES
 (28, 'Artisan', 'Production artisanale', '2025-08-04 10:06:09'),
 (29, 'PME', 'Petite et moyenne entreprise', '2025-08-04 10:06:09'),
 (30, 'Grande entreprise', 'Entreprise de grande taille', '2025-08-04 10:06:09');
-
--- --------------------------------------------------------
-
---
--- Table structure for table `typing_indicators`
---
-
-CREATE TABLE `typing_indicators` (
-  `id` int(11) NOT NULL,
-  `conversation_id` int(11) NOT NULL,
-  `utilisateur_id` int(11) NOT NULL,
-  `is_typing` tinyint(1) DEFAULT 0,
-  `last_activity` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -2219,19 +1350,6 @@ INSERT INTO `utilisateurs` (`id`, `email`, `photo_profil`, `mot_de_passe`, `nom`
 -- --------------------------------------------------------
 
 --
--- Table structure for table `utilisateurs_segments`
---
-
-CREATE TABLE `utilisateurs_segments` (
-  `id` int(11) NOT NULL,
-  `utilisateur_id` int(11) NOT NULL,
-  `segment_id` int(11) NOT NULL,
-  `date_ajout` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `utilisateurs_temp`
 --
 
@@ -2242,80 +1360,6 @@ CREATE TABLE `utilisateurs_temp` (
   `code_expires_at` datetime NOT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `utilisations_coupons`
---
-
-CREATE TABLE `utilisations_coupons` (
-  `id` int(11) NOT NULL,
-  `coupon_id` int(11) NOT NULL,
-  `utilisateur_id` int(11) NOT NULL,
-  `montant_reduction` decimal(10,2) NOT NULL,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Triggers `utilisations_coupons`
---
-DELIMITER $$
-CREATE TRIGGER `update_coupon_usage` AFTER INSERT ON `utilisations_coupons` FOR EACH ROW BEGIN
-    UPDATE coupons_reduction 
-    SET utilisations_actuelles = utilisations_actuelles + 1
-    WHERE id = NEW.coupon_id;
-END
-$$
-DELIMITER ;
-
--- --------------------------------------------------------
-
---
--- Table structure for table `valeurs_attributs`
---
-
-CREATE TABLE `valeurs_attributs` (
-  `id` int(11) NOT NULL,
-  `attribut_id` int(11) NOT NULL,
-  `valeur` varchar(100) NOT NULL,
-  `code_couleur` varchar(7) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `valeurs_attributs`
---
-
-INSERT INTO `valeurs_attributs` (`id`, `attribut_id`, `valeur`, `code_couleur`) VALUES
-(1, 1, 'Rouge', '#FF0000'),
-(2, 1, 'Bleu', '#0000FF'),
-(3, 1, 'Vert', '#00FF00'),
-(4, 2, 'S', NULL),
-(5, 2, 'M', NULL),
-(6, 2, 'L', NULL),
-(7, 2, 'XL', NULL),
-(8, 3, 'Coton', NULL),
-(9, 3, 'Polyester', NULL),
-(10, 3, 'Laine', NULL);
-
--- --------------------------------------------------------
-
---
--- Table structure for table `variantes_produits`
---
-
-CREATE TABLE `variantes_produits` (
-  `id` int(11) NOT NULL,
-  `produit_id` int(11) NOT NULL,
-  `nom_variante` varchar(100) NOT NULL,
-  `valeur_variante` varchar(100) NOT NULL,
-  `prix_supplement` decimal(10,2) DEFAULT 0.00,
-  `stock_variante` int(11) DEFAULT 0,
-  `sku` varchar(100) DEFAULT NULL,
-  `image_variante` varchar(255) DEFAULT NULL,
-  `actif` tinyint(1) DEFAULT 1,
-  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- --------------------------------------------------------
 
@@ -2542,34 +1586,9 @@ CREATE TABLE `vue_produits_populaires` (
 ,`prix_final` decimal(10,2)
 );
 
--- --------------------------------------------------------
-
---
--- Table structure for table `zones_livraison`
---
-
-CREATE TABLE `zones_livraison` (
-  `id` int(11) NOT NULL,
-  `transporteur_id` int(11) NOT NULL,
-  `nom` varchar(100) NOT NULL,
-  `pays` varchar(100) NOT NULL,
-  `code_postal_debut` varchar(10) DEFAULT NULL,
-  `code_postal_fin` varchar(10) DEFAULT NULL,
-  `prix_base` decimal(10,2) NOT NULL,
-  `prix_par_kg` decimal(10,2) DEFAULT 0.00,
-  `delai_livraison_min` int(11) DEFAULT 1,
-  `delai_livraison_max` int(11) DEFAULT 7
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
 --
 -- Indexes for dumped tables
 --
-
---
--- Indexes for table `abonnements`
---
-ALTER TABLE `abonnements`
-  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `admin_audit_logs`
@@ -2632,28 +1651,6 @@ ALTER TABLE `articles_blog`
   ADD KEY `idx_articles_popularite` (`nombre_vues` DESC,`nombre_likes` DESC);
 
 --
--- Indexes for table `attributs`
---
-ALTER TABLE `attributs`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `audit_trail`
---
-ALTER TABLE `audit_trail`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `utilisateur_id` (`utilisateur_id`),
-  ADD KEY `idx_audit_trail_table` (`table_name`,`record_id`);
-
---
--- Indexes for table `avis`
---
-ALTER TABLE `avis`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fournisseur_id` (`fournisseur_id`),
-  ADD KEY `avis_ibfk_1` (`acheteur_id`);
-
---
 -- Indexes for table `avis_produits`
 --
 ALTER TABLE `avis_produits`
@@ -2666,50 +1663,12 @@ ALTER TABLE `avis_produits`
   ADD KEY `idx_date_creation` (`date_creation`);
 
 --
--- Indexes for table `avis_produits_ameliore`
---
-ALTER TABLE `avis_produits_ameliore`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_user_product_review` (`produit_id`,`utilisateur_id`),
-  ADD KEY `utilisateur_id` (`utilisateur_id`),
-  ADD KEY `moderateur_id` (`moderateur_id`),
-  ADD KEY `idx_statut` (`statut`),
-  ADD KEY `idx_produit_statut` (`produit_id`,`statut`),
-  ADD KEY `idx_date_creation` (`date_creation`);
-
---
--- Indexes for table `campagnes_marketing`
---
-ALTER TABLE `campagnes_marketing`
-  ADD PRIMARY KEY (`id`);
-
---
 -- Indexes for table `categories`
 --
 ALTER TABLE `categories`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `slug` (`slug`),
   ADD KEY `parent_id` (`parent_id`);
-
---
--- Indexes for table `certifications`
---
-ALTER TABLE `certifications`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `certifications_produits`
---
-ALTER TABLE `certifications_produits`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_certifications_produit` (`produit_id`);
-
---
--- Indexes for table `conditions_commerciales`
---
-ALTER TABLE `conditions_commerciales`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_conditions_produit` (`produit_id`);
 
 --
 -- Indexes for table `conversations`
@@ -2724,54 +1683,11 @@ ALTER TABLE `conversations`
   ADD KEY `idx_conversations_priorite` (`priorite`);
 
 --
--- Indexes for table `conversation_participants`
---
-ALTER TABLE `conversation_participants`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_participant` (`conversation_id`,`utilisateur_id`),
-  ADD KEY `utilisateur_id` (`utilisateur_id`);
-
---
--- Indexes for table `coupons_reduction`
---
-ALTER TABLE `coupons_reduction`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `code` (`code`),
-  ADD KEY `fournisseur_id` (`fournisseur_id`);
-
---
--- Indexes for table `devis`
---
-ALTER TABLE `devis`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `numero_devis` (`numero_devis`),
-  ADD KEY `acheteur_id` (`acheteur_id`),
-  ADD KEY `fournisseur_id` (`fournisseur_id`),
-  ADD KEY `produit_id` (`produit_id`);
-
---
--- Indexes for table `devises`
---
-ALTER TABLE `devises`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `code` (`code`);
-
---
 -- Indexes for table `documents_entreprise`
 --
 ALTER TABLE `documents_entreprise`
   ADD PRIMARY KEY (`id`),
   ADD KEY `entreprise_id` (`entreprise_id`);
-
---
--- Indexes for table `documents_utilisateur`
---
-ALTER TABLE `documents_utilisateur`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_utilisateur_id` (`utilisateur_id`),
-  ADD KEY `idx_statut_validation` (`statut_validation`),
-  ADD KEY `idx_type_document` (`type_document`),
-  ADD KEY `idx_date_soumission` (`date_soumission`);
 
 --
 -- Indexes for table `email_notifications`
@@ -2782,14 +1698,6 @@ ALTER TABLE `email_notifications`
   ADD KEY `idx_statut_envoi` (`statut_envoi`),
   ADD KEY `idx_type_notification` (`type_notification`),
   ADD KEY `idx_date_creation` (`date_creation`);
-
---
--- Indexes for table `encheres`
---
-ALTER TABLE `encheres`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `acheteur_id` (`acheteur_id`),
-  ADD KEY `produit_id` (`produit_id`);
 
 --
 -- Indexes for table `entreprises`
@@ -2828,22 +1736,6 @@ ALTER TABLE `favoris`
   ADD KEY `idx_favoris_utilisateur` (`utilisateur_id`);
 
 --
--- Indexes for table `fournisseurs_abonnements`
---
-ALTER TABLE `fournisseurs_abonnements`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fournisseur_id` (`fournisseur_id`),
-  ADD KEY `abonnement_id` (`abonnement_id`);
-
---
--- Indexes for table `fournisseurs_certifications`
---
-ALTER TABLE `fournisseurs_certifications`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `fournisseur_id` (`fournisseur_id`),
-  ADD KEY `certification_id` (`certification_id`);
-
---
 -- Indexes for table `gdpr_consentements`
 --
 ALTER TABLE `gdpr_consentements`
@@ -2851,25 +1743,11 @@ ALTER TABLE `gdpr_consentements`
   ADD KEY `utilisateur_id` (`utilisateur_id`);
 
 --
--- Indexes for table `historique_prix`
---
-ALTER TABLE `historique_prix`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `produit_id` (`produit_id`);
-
---
 -- Indexes for table `images_produits`
 --
 ALTER TABLE `images_produits`
   ADD PRIMARY KEY (`id`),
   ADD KEY `produit_id` (`produit_id`);
-
---
--- Indexes for table `langues`
---
-ALTER TABLE `langues`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `code` (`code`);
 
 --
 -- Indexes for table `logs_activite`
@@ -2900,54 +1778,6 @@ ALTER TABLE `messages`
   ADD KEY `fk_message_parent` (`message_parent_id`);
 
 --
--- Indexes for table `message_attachments`
---
-ALTER TABLE `message_attachments`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_message_id` (`message_id`);
-
---
--- Indexes for table `message_files`
---
-ALTER TABLE `message_files`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_message_files_message_id` (`message_id`);
-
---
--- Indexes for table `message_notifications`
---
-ALTER TABLE `message_notifications`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_user_id` (`user_id`),
-  ADD KEY `idx_message_id` (`message_id`),
-  ADD KEY `idx_conversation_id` (`conversation_id`),
-  ADD KEY `idx_is_read` (`is_read`);
-
---
--- Indexes for table `message_reactions`
---
-ALTER TABLE `message_reactions`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_reaction` (`message_id`,`utilisateur_id`,`emoji`),
-  ADD KEY `utilisateur_id` (`utilisateur_id`);
-
---
--- Indexes for table `message_read_status`
---
-ALTER TABLE `message_read_status`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_read_status` (`message_id`,`user_id`),
-  ADD KEY `idx_message_id` (`message_id`),
-  ADD KEY `idx_user_id` (`user_id`);
-
---
--- Indexes for table `methodes_livraison_produit`
---
-ALTER TABLE `methodes_livraison_produit`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_livraison_produit` (`produit_id`);
-
---
 -- Indexes for table `notifications`
 --
 ALTER TABLE `notifications`
@@ -2960,21 +1790,6 @@ ALTER TABLE `notifications`
   ADD KEY `idx_related_product` (`related_product_id`),
   ADD KEY `idx_related_conversation` (`related_conversation_id`),
   ADD KEY `idx_related_order` (`related_order_id`);
-
---
--- Indexes for table `offres_encheres`
---
-ALTER TABLE `offres_encheres`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `enchere_id` (`enchere_id`),
-  ADD KEY `fournisseur_id` (`fournisseur_id`);
-
---
--- Indexes for table `parametres_site`
---
-ALTER TABLE `parametres_site`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `cle` (`cle`);
 
 --
 -- Indexes for table `participants_evenements`
@@ -2997,31 +1812,6 @@ ALTER TABLE `password_reset_tokens`
   ADD KEY `idx_used` (`used`);
 
 --
--- Indexes for table `photos_entreprise`
---
-ALTER TABLE `photos_entreprise`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `entreprise_id` (`entreprise_id`);
-
---
--- Indexes for table `prix_degressifs`
---
-ALTER TABLE `prix_degressifs`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_prix_degressifs_produit` (`produit_id`);
-
---
--- Indexes for table `product_reports`
---
-ALTER TABLE `product_reports`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `reporter_id` (`reporter_id`),
-  ADD KEY `handled_by` (`handled_by`),
-  ADD KEY `idx_reports_product` (`product_id`),
-  ADD KEY `idx_reports_status` (`status`),
-  ADD KEY `idx_reports_date` (`created_at`);
-
---
 -- Indexes for table `produits`
 --
 ALTER TABLE `produits`
@@ -3036,22 +1826,6 @@ ALTER TABLE `produits`
   ADD KEY `idx_produits_popularite` (`score_popularite` DESC,`vues_30j` DESC),
   ADD KEY `idx_produits_activite` (`derniere_activite` DESC),
   ADD KEY `idx_produits_ventes_30j` (`ventes_30j` DESC);
-
---
--- Indexes for table `produits_attributs`
---
-ALTER TABLE `produits_attributs`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `produit_id` (`produit_id`),
-  ADD KEY `valeur_attribut_id` (`valeur_attribut_id`);
-
---
--- Indexes for table `recommandations`
---
-ALTER TABLE `recommandations`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `utilisateur_id` (`utilisateur_id`),
-  ADD KEY `produit_id` (`produit_id`);
 
 --
 -- Indexes for table `reponses_avis`
@@ -3075,38 +1849,12 @@ ALTER TABLE `secteurs_activite`
   ADD PRIMARY KEY (`id`);
 
 --
--- Indexes for table `segments_clients`
---
-ALTER TABLE `segments_clients`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `seo_meta`
---
-ALTER TABLE `seo_meta`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `sessions_utilisateurs`
---
-ALTER TABLE `sessions_utilisateurs`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_sessions_utilisateur` (`utilisateur_id`);
-
---
 -- Indexes for table `signalements_avis`
 --
 ALTER TABLE `signalements_avis`
   ADD PRIMARY KEY (`id`),
   ADD KEY `idx_signalements_avis` (`avis_id`),
   ADD KEY `idx_signalements_utilisateur` (`utilisateur_id`);
-
---
--- Indexes for table `specifications_techniques`
---
-ALTER TABLE `specifications_techniques`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_specifications_produit` (`produit_id`);
 
 --
 -- Indexes for table `statistiques_produits`
@@ -3126,67 +1874,10 @@ ALTER TABLE `statistiques_vues`
   ADD KEY `idx_statistiques_vues` (`table_name`,`record_id`);
 
 --
--- Indexes for table `system_messages`
---
-ALTER TABLE `system_messages`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_created_by` (`created_by`),
-  ADD KEY `idx_target_audience` (`target_audience`),
-  ADD KEY `idx_is_active` (`is_active`),
-  ADD KEY `idx_expires_at` (`expires_at`);
-
---
--- Indexes for table `system_message_reads`
---
-ALTER TABLE `system_message_reads`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_system_read` (`system_message_id`,`user_id`),
-  ADD KEY `idx_system_message_id` (`system_message_id`),
-  ADD KEY `idx_user_id` (`user_id`);
-
---
--- Indexes for table `system_settings`
---
-ALTER TABLE `system_settings`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `setting_key` (`setting_key`),
-  ADD KEY `updated_by` (`updated_by`),
-  ADD KEY `idx_settings_key` (`setting_key`),
-  ADD KEY `idx_settings_category` (`category`);
-
---
--- Indexes for table `tentatives_connexion`
---
-ALTER TABLE `tentatives_connexion`
-  ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `traductions`
---
-ALTER TABLE `traductions`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `langue_id` (`langue_id`);
-
---
--- Indexes for table `transporteurs`
---
-ALTER TABLE `transporteurs`
-  ADD PRIMARY KEY (`id`);
-
---
 -- Indexes for table `types_entreprise`
 --
 ALTER TABLE `types_entreprise`
   ADD PRIMARY KEY (`id`);
-
---
--- Indexes for table `typing_indicators`
---
-ALTER TABLE `typing_indicators`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `unique_typing` (`conversation_id`,`utilisateur_id`),
-  ADD KEY `utilisateur_id` (`utilisateur_id`),
-  ADD KEY `idx_typing_indicators_conversation` (`conversation_id`);
 
 --
 -- Indexes for table `utilisateurs`
@@ -3205,14 +1896,6 @@ ALTER TABLE `utilisateurs`
   ADD KEY `idx_email_verification_token` (`email_verification_token`);
 
 --
--- Indexes for table `utilisateurs_segments`
---
-ALTER TABLE `utilisateurs_segments`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `utilisateur_id` (`utilisateur_id`),
-  ADD KEY `segment_id` (`segment_id`);
-
---
 -- Indexes for table `utilisateurs_temp`
 --
 ALTER TABLE `utilisateurs_temp`
@@ -3221,28 +1904,6 @@ ALTER TABLE `utilisateurs_temp`
   ADD KEY `idx_email` (`email`),
   ADD KEY `idx_code` (`verification_code`),
   ADD KEY `idx_expires` (`code_expires_at`);
-
---
--- Indexes for table `utilisations_coupons`
---
-ALTER TABLE `utilisations_coupons`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `coupon_id` (`coupon_id`),
-  ADD KEY `utilisateur_id` (`utilisateur_id`);
-
---
--- Indexes for table `valeurs_attributs`
---
-ALTER TABLE `valeurs_attributs`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `attribut_id` (`attribut_id`);
-
---
--- Indexes for table `variantes_produits`
---
-ALTER TABLE `variantes_produits`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_variantes_produit` (`produit_id`);
 
 --
 -- Indexes for table `vues_produits_detaillees`
@@ -3254,21 +1915,8 @@ ALTER TABLE `vues_produits_detaillees`
   ADD KEY `idx_vues_timestamp` (`timestamp`);
 
 --
--- Indexes for table `zones_livraison`
---
-ALTER TABLE `zones_livraison`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `transporteur_id` (`transporteur_id`);
-
---
 -- AUTO_INCREMENT for dumped tables
 --
-
---
--- AUTO_INCREMENT for table `abonnements`
---
-ALTER TABLE `abonnements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `admin_audit_logs`
@@ -3301,40 +1949,10 @@ ALTER TABLE `articles_blog`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
--- AUTO_INCREMENT for table `attributs`
---
-ALTER TABLE `attributs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT for table `audit_trail`
---
-ALTER TABLE `audit_trail`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `avis`
---
-ALTER TABLE `avis`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `avis_produits`
 --
 ALTER TABLE `avis_produits`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT for table `avis_produits_ameliore`
---
-ALTER TABLE `avis_produits_ameliore`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `campagnes_marketing`
---
-ALTER TABLE `campagnes_marketing`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `categories`
@@ -3343,52 +1961,10 @@ ALTER TABLE `categories`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=180;
 
 --
--- AUTO_INCREMENT for table `certifications`
---
-ALTER TABLE `certifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
-
---
--- AUTO_INCREMENT for table `certifications_produits`
---
-ALTER TABLE `certifications_produits`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `conditions_commerciales`
---
-ALTER TABLE `conditions_commerciales`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `conversations`
 --
 ALTER TABLE `conversations`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=44;
-
---
--- AUTO_INCREMENT for table `conversation_participants`
---
-ALTER TABLE `conversation_participants`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `coupons_reduction`
---
-ALTER TABLE `coupons_reduction`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `devis`
---
-ALTER TABLE `devis`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `devises`
---
-ALTER TABLE `devises`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `documents_entreprise`
@@ -3397,22 +1973,10 @@ ALTER TABLE `documents_entreprise`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
--- AUTO_INCREMENT for table `documents_utilisateur`
---
-ALTER TABLE `documents_utilisateur`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `email_notifications`
 --
 ALTER TABLE `email_notifications`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
-
---
--- AUTO_INCREMENT for table `encheres`
---
-ALTER TABLE `encheres`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `entreprises`
@@ -3439,27 +2003,9 @@ ALTER TABLE `favoris`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
--- AUTO_INCREMENT for table `fournisseurs_abonnements`
---
-ALTER TABLE `fournisseurs_abonnements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `fournisseurs_certifications`
---
-ALTER TABLE `fournisseurs_certifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `gdpr_consentements`
 --
 ALTER TABLE `gdpr_consentements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `historique_prix`
---
-ALTER TABLE `historique_prix`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
@@ -3467,12 +2013,6 @@ ALTER TABLE `historique_prix`
 --
 ALTER TABLE `images_produits`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=33;
-
---
--- AUTO_INCREMENT for table `langues`
---
-ALTER TABLE `langues`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `logs_activite`
@@ -3493,58 +2033,10 @@ ALTER TABLE `messages`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
--- AUTO_INCREMENT for table `message_attachments`
---
-ALTER TABLE `message_attachments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `message_files`
---
-ALTER TABLE `message_files`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `message_notifications`
---
-ALTER TABLE `message_notifications`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `message_reactions`
---
-ALTER TABLE `message_reactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `message_read_status`
---
-ALTER TABLE `message_read_status`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `methodes_livraison_produit`
---
-ALTER TABLE `methodes_livraison_produit`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
-
---
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=54;
-
---
--- AUTO_INCREMENT for table `offres_encheres`
---
-ALTER TABLE `offres_encheres`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `parametres_site`
---
-ALTER TABLE `parametres_site`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
 
 --
 -- AUTO_INCREMENT for table `participants_evenements`
@@ -3559,39 +2051,9 @@ ALTER TABLE `password_reset_tokens`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
--- AUTO_INCREMENT for table `photos_entreprise`
---
-ALTER TABLE `photos_entreprise`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `prix_degressifs`
---
-ALTER TABLE `prix_degressifs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
-
---
--- AUTO_INCREMENT for table `product_reports`
---
-ALTER TABLE `product_reports`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `produits`
 --
 ALTER TABLE `produits`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `produits_attributs`
---
-ALTER TABLE `produits_attributs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `recommandations`
---
-ALTER TABLE `recommandations`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
@@ -3613,27 +2075,9 @@ ALTER TABLE `secteurs_activite`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=39;
 
 --
--- AUTO_INCREMENT for table `segments_clients`
---
-ALTER TABLE `segments_clients`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `seo_meta`
---
-ALTER TABLE `seo_meta`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `signalements_avis`
 --
 ALTER TABLE `signalements_avis`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `specifications_techniques`
---
-ALTER TABLE `specifications_techniques`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
@@ -3649,52 +2093,10 @@ ALTER TABLE `statistiques_vues`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT for table `system_messages`
---
-ALTER TABLE `system_messages`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `system_message_reads`
---
-ALTER TABLE `system_message_reads`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `system_settings`
---
-ALTER TABLE `system_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
-
---
--- AUTO_INCREMENT for table `tentatives_connexion`
---
-ALTER TABLE `tentatives_connexion`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `traductions`
---
-ALTER TABLE `traductions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `transporteurs`
---
-ALTER TABLE `transporteurs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
-
---
 -- AUTO_INCREMENT for table `types_entreprise`
 --
 ALTER TABLE `types_entreprise`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
-
---
--- AUTO_INCREMENT for table `typing_indicators`
---
-ALTER TABLE `typing_indicators`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `utilisateurs`
@@ -3703,46 +2105,16 @@ ALTER TABLE `utilisateurs`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=72;
 
 --
--- AUTO_INCREMENT for table `utilisateurs_segments`
---
-ALTER TABLE `utilisateurs_segments`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `utilisateurs_temp`
 --
 ALTER TABLE `utilisateurs_temp`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
--- AUTO_INCREMENT for table `utilisations_coupons`
---
-ALTER TABLE `utilisations_coupons`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `valeurs_attributs`
---
-ALTER TABLE `valeurs_attributs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
-
---
--- AUTO_INCREMENT for table `variantes_produits`
---
-ALTER TABLE `variantes_produits`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT for table `vues_produits_detaillees`
 --
 ALTER TABLE `vues_produits_detaillees`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
-
---
--- AUTO_INCREMENT for table `zones_livraison`
---
-ALTER TABLE `zones_livraison`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 -- --------------------------------------------------------
 
@@ -3800,19 +2172,6 @@ ALTER TABLE `adresses`
   ADD CONSTRAINT `adresses_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `audit_trail`
---
-ALTER TABLE `audit_trail`
-  ADD CONSTRAINT `audit_trail_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `avis`
---
-ALTER TABLE `avis`
-  ADD CONSTRAINT `avis_ibfk_1` FOREIGN KEY (`acheteur_id`) REFERENCES `utilisateurs` (`id`),
-  ADD CONSTRAINT `avis_ibfk_2` FOREIGN KEY (`fournisseur_id`) REFERENCES `entreprises` (`id`);
-
---
 -- Constraints for table `avis_produits`
 --
 ALTER TABLE `avis_produits`
@@ -3820,30 +2179,10 @@ ALTER TABLE `avis_produits`
   ADD CONSTRAINT `avis_produits_ibfk_2` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `avis_produits_ameliore`
---
-ALTER TABLE `avis_produits_ameliore`
-  ADD CONSTRAINT `avis_produits_ameliore_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `avis_produits_ameliore_ibfk_2` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `avis_produits_ameliore_ibfk_3` FOREIGN KEY (`moderateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE SET NULL;
-
---
 -- Constraints for table `categories`
 --
 ALTER TABLE `categories`
   ADD CONSTRAINT `categories_ibfk_1` FOREIGN KEY (`parent_id`) REFERENCES `categories` (`id`) ON DELETE SET NULL;
-
---
--- Constraints for table `certifications_produits`
---
-ALTER TABLE `certifications_produits`
-  ADD CONSTRAINT `certifications_produits_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `conditions_commerciales`
---
-ALTER TABLE `conditions_commerciales`
-  ADD CONSTRAINT `conditions_commerciales_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `conversations`
@@ -3854,50 +2193,16 @@ ALTER TABLE `conversations`
   ADD CONSTRAINT `conversations_ibfk_3` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE SET NULL;
 
 --
--- Constraints for table `conversation_participants`
---
-ALTER TABLE `conversation_participants`
-  ADD CONSTRAINT `conversation_participants_ibfk_1` FOREIGN KEY (`conversation_id`) REFERENCES `conversations` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `conversation_participants_ibfk_2` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `coupons_reduction`
---
-ALTER TABLE `coupons_reduction`
-  ADD CONSTRAINT `coupons_reduction_ibfk_1` FOREIGN KEY (`fournisseur_id`) REFERENCES `entreprises` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `devis`
---
-ALTER TABLE `devis`
-  ADD CONSTRAINT `devis_ibfk_1` FOREIGN KEY (`acheteur_id`) REFERENCES `utilisateurs` (`id`),
-  ADD CONSTRAINT `devis_ibfk_2` FOREIGN KEY (`fournisseur_id`) REFERENCES `entreprises` (`id`),
-  ADD CONSTRAINT `devis_ibfk_3` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`);
-
---
 -- Constraints for table `documents_entreprise`
 --
 ALTER TABLE `documents_entreprise`
   ADD CONSTRAINT `documents_entreprise_ibfk_1` FOREIGN KEY (`entreprise_id`) REFERENCES `entreprises` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `documents_utilisateur`
---
-ALTER TABLE `documents_utilisateur`
-  ADD CONSTRAINT `documents_utilisateur_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `email_notifications`
 --
 ALTER TABLE `email_notifications`
   ADD CONSTRAINT `email_notifications_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `encheres`
---
-ALTER TABLE `encheres`
-  ADD CONSTRAINT `encheres_ibfk_1` FOREIGN KEY (`acheteur_id`) REFERENCES `utilisateurs` (`id`),
-  ADD CONSTRAINT `encheres_ibfk_2` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`);
 
 --
 -- Constraints for table `entreprises`
@@ -3925,30 +2230,10 @@ ALTER TABLE `favoris`
   ADD CONSTRAINT `favoris_ibfk_2` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `fournisseurs_abonnements`
---
-ALTER TABLE `fournisseurs_abonnements`
-  ADD CONSTRAINT `fournisseurs_abonnements_ibfk_1` FOREIGN KEY (`fournisseur_id`) REFERENCES `entreprises` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fournisseurs_abonnements_ibfk_2` FOREIGN KEY (`abonnement_id`) REFERENCES `abonnements` (`id`);
-
---
--- Constraints for table `fournisseurs_certifications`
---
-ALTER TABLE `fournisseurs_certifications`
-  ADD CONSTRAINT `fournisseurs_certifications_ibfk_1` FOREIGN KEY (`fournisseur_id`) REFERENCES `entreprises` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `fournisseurs_certifications_ibfk_2` FOREIGN KEY (`certification_id`) REFERENCES `certifications` (`id`);
-
---
 -- Constraints for table `gdpr_consentements`
 --
 ALTER TABLE `gdpr_consentements`
   ADD CONSTRAINT `gdpr_consentements_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `historique_prix`
---
-ALTER TABLE `historique_prix`
-  ADD CONSTRAINT `historique_prix_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `images_produits`
@@ -3977,59 +2262,12 @@ ALTER TABLE `messages`
   ADD CONSTRAINT `messages_ibfk_2` FOREIGN KEY (`expediteur_id`) REFERENCES `utilisateurs` (`id`);
 
 --
--- Constraints for table `message_attachments`
---
-ALTER TABLE `message_attachments`
-  ADD CONSTRAINT `message_attachments_ibfk_1` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `message_files`
---
-ALTER TABLE `message_files`
-  ADD CONSTRAINT `message_files_ibfk_1` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `message_notifications`
---
-ALTER TABLE `message_notifications`
-  ADD CONSTRAINT `message_notifications_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `message_notifications_ibfk_2` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `message_notifications_ibfk_3` FOREIGN KEY (`conversation_id`) REFERENCES `conversations` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `message_reactions`
---
-ALTER TABLE `message_reactions`
-  ADD CONSTRAINT `message_reactions_ibfk_1` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `message_reactions_ibfk_2` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `message_read_status`
---
-ALTER TABLE `message_read_status`
-  ADD CONSTRAINT `message_read_status_ibfk_1` FOREIGN KEY (`message_id`) REFERENCES `messages` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `message_read_status_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `methodes_livraison_produit`
---
-ALTER TABLE `methodes_livraison_produit`
-  ADD CONSTRAINT `methodes_livraison_produit_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `notifications`
 --
 ALTER TABLE `notifications`
   ADD CONSTRAINT `fk_notifications_related_product` FOREIGN KEY (`related_product_id`) REFERENCES `produits` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_notifications_related_user` FOREIGN KEY (`related_user_id`) REFERENCES `utilisateurs` (`id`) ON DELETE SET NULL,
   ADD CONSTRAINT `notifications_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `offres_encheres`
---
-ALTER TABLE `offres_encheres`
-  ADD CONSTRAINT `offres_encheres_ibfk_1` FOREIGN KEY (`enchere_id`) REFERENCES `encheres` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `offres_encheres_ibfk_2` FOREIGN KEY (`fournisseur_id`) REFERENCES `entreprises` (`id`);
 
 --
 -- Constraints for table `participants_evenements`
@@ -4044,26 +2282,6 @@ ALTER TABLE `password_reset_tokens`
   ADD CONSTRAINT `password_reset_tokens_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `photos_entreprise`
---
-ALTER TABLE `photos_entreprise`
-  ADD CONSTRAINT `photos_entreprise_ibfk_1` FOREIGN KEY (`entreprise_id`) REFERENCES `entreprises` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `prix_degressifs`
---
-ALTER TABLE `prix_degressifs`
-  ADD CONSTRAINT `prix_degressifs_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `product_reports`
---
-ALTER TABLE `product_reports`
-  ADD CONSTRAINT `product_reports_ibfk_1` FOREIGN KEY (`product_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `product_reports_ibfk_2` FOREIGN KEY (`reporter_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `product_reports_ibfk_3` FOREIGN KEY (`handled_by`) REFERENCES `utilisateurs` (`id`);
-
---
 -- Constraints for table `produits`
 --
 ALTER TABLE `produits`
@@ -4072,42 +2290,16 @@ ALTER TABLE `produits`
   ADD CONSTRAINT `produits_ibfk_2` FOREIGN KEY (`categorie_id`) REFERENCES `categories` (`id`);
 
 --
--- Constraints for table `produits_attributs`
---
-ALTER TABLE `produits_attributs`
-  ADD CONSTRAINT `produits_attributs_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `produits_attributs_ibfk_2` FOREIGN KEY (`valeur_attribut_id`) REFERENCES `valeurs_attributs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `recommandations`
---
-ALTER TABLE `recommandations`
-  ADD CONSTRAINT `recommandations_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `recommandations_ibfk_2` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `reponses_avis`
 --
 ALTER TABLE `reponses_avis`
   ADD CONSTRAINT `reponses_avis_ibfk_1` FOREIGN KEY (`avis_id`) REFERENCES `avis_produits` (`id`) ON DELETE CASCADE;
 
 --
--- Constraints for table `sessions_utilisateurs`
---
-ALTER TABLE `sessions_utilisateurs`
-  ADD CONSTRAINT `sessions_utilisateurs_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `signalements_avis`
 --
 ALTER TABLE `signalements_avis`
   ADD CONSTRAINT `signalements_avis_ibfk_1` FOREIGN KEY (`avis_id`) REFERENCES `avis_produits` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `specifications_techniques`
---
-ALTER TABLE `specifications_techniques`
-  ADD CONSTRAINT `specifications_techniques_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `statistiques_produits`
@@ -4122,38 +2314,6 @@ ALTER TABLE `statistiques_vues`
   ADD CONSTRAINT `statistiques_vues_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE SET NULL;
 
 --
--- Constraints for table `system_messages`
---
-ALTER TABLE `system_messages`
-  ADD CONSTRAINT `system_messages_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `system_message_reads`
---
-ALTER TABLE `system_message_reads`
-  ADD CONSTRAINT `system_message_reads_ibfk_1` FOREIGN KEY (`system_message_id`) REFERENCES `system_messages` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `system_message_reads_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `system_settings`
---
-ALTER TABLE `system_settings`
-  ADD CONSTRAINT `system_settings_ibfk_1` FOREIGN KEY (`updated_by`) REFERENCES `utilisateurs` (`id`);
-
---
--- Constraints for table `traductions`
---
-ALTER TABLE `traductions`
-  ADD CONSTRAINT `traductions_ibfk_1` FOREIGN KEY (`langue_id`) REFERENCES `langues` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `typing_indicators`
---
-ALTER TABLE `typing_indicators`
-  ADD CONSTRAINT `typing_indicators_ibfk_1` FOREIGN KEY (`conversation_id`) REFERENCES `conversations` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `typing_indicators_ibfk_2` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `utilisateurs`
 --
 ALTER TABLE `utilisateurs`
@@ -4161,42 +2321,10 @@ ALTER TABLE `utilisateurs`
   ADD CONSTRAINT `utilisateurs_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`);
 
 --
--- Constraints for table `utilisateurs_segments`
---
-ALTER TABLE `utilisateurs_segments`
-  ADD CONSTRAINT `utilisateurs_segments_ibfk_1` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `utilisateurs_segments_ibfk_2` FOREIGN KEY (`segment_id`) REFERENCES `segments_clients` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `utilisations_coupons`
---
-ALTER TABLE `utilisations_coupons`
-  ADD CONSTRAINT `utilisations_coupons_ibfk_1` FOREIGN KEY (`coupon_id`) REFERENCES `coupons_reduction` (`id`),
-  ADD CONSTRAINT `utilisations_coupons_ibfk_2` FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateurs` (`id`);
-
---
--- Constraints for table `valeurs_attributs`
---
-ALTER TABLE `valeurs_attributs`
-  ADD CONSTRAINT `valeurs_attributs_ibfk_1` FOREIGN KEY (`attribut_id`) REFERENCES `attributs` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `variantes_produits`
---
-ALTER TABLE `variantes_produits`
-  ADD CONSTRAINT `variantes_produits_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
-
---
 -- Constraints for table `vues_produits_detaillees`
 --
 ALTER TABLE `vues_produits_detaillees`
   ADD CONSTRAINT `vues_produits_detaillees_ibfk_1` FOREIGN KEY (`produit_id`) REFERENCES `produits` (`id`) ON DELETE CASCADE;
-
---
--- Constraints for table `zones_livraison`
---
-ALTER TABLE `zones_livraison`
-  ADD CONSTRAINT `zones_livraison_ibfk_1` FOREIGN KEY (`transporteur_id`) REFERENCES `transporteurs` (`id`) ON DELETE CASCADE;
 
 DELIMITER $$
 --

@@ -1,11 +1,17 @@
+// Charger le .env en premier
+require('dotenv').config();
+
 const express = require('express');
 const http = require('http');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
 
 // Import des middlewares de sécurité
 const {
@@ -19,11 +25,47 @@ const {
   timingAttackProtection,
   sanitizeResponse,
   dosProtection,
-
 } = require('./middleware/security');
+
+// Import des middlewares de sécurité avancés
+const {
+  sqlInjectionProtection,
+  xssProtection,
+  bruteForceProtection,
+  dictionaryAttackProtection,
+  intrusionDetection,
+  encryptSensitiveData
+} = require('./middleware/advancedSecurity');
+
+// Import du système de monitoring de sécurité
+const securityMonitor = require('./services/securityMonitor');
+
+// Import du système de logging de sécurité
+const {
+  securityLoggingMiddleware,
+  anomalyDetection,
+  advancedRateLimit,
+  secureHeaders,
+  requestValidation
+} = require('./middleware/securityLogger');
 
 const app = express();
 const server = http.createServer(app);
+
+// Configuration de la session
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-session-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 heures
+  }
+}));
+
+// Configuration de Passport
+app.use(passport.initialize());
+app.use(passport.session());
 
 // Initialiser le gestionnaire Socket.IO SIMPLE
 const SimpleSocketServer = require('./socket/simpleSocketServer');
@@ -37,13 +79,39 @@ app.use((req, res, next) => {
     next();
 });
 
-// Middlewares de sécurité (dans l'ordre d'importance)
+// ===========================================
+// MIDDLEWARES DE SÉCURITÉ RENFORCÉS
+// ===========================================
+
+// 1. Headers de sécurité de base
 app.use(helmetConfig);
+app.use(secureHeaders);
+
+// 2. Configuration CORS sécurisée
 app.use(cors(corsOptions));
+
+// 3. Validation des requêtes
+app.use(requestValidation);
 app.use(validateHeaders);
 app.use(dosProtection);
+
+// 4. Détection d'intrusion et d'anomalies
+app.use(intrusionDetection);
+app.use(anomalyDetection);
+
+// 5. Protection contre les attaques
+app.use(sqlInjectionProtection);
+app.use(xssProtection);
 app.use(attackDetection);
+
+// 6. Rate limiting avancé
 app.use(globalRateLimit);
+
+// 7. Logging de sécurité
+app.use(securityLoggingMiddleware);
+
+// 8. Chiffrement des données sensibles
+app.use(encryptSensitiveData);
 app.use(sanitizeResponse);
 
 // Handle preflight requests
@@ -60,8 +128,19 @@ app.use('/uploads', (req, res, next) => {
     next();
 }, express.static('uploads'));
 
-// Routes avec sécurité renforcée
-app.use('/api/auth', authRateLimit, securityLogger('auth'), timingAttackProtection, require('./routes/auth'));
+// ===========================================
+// ROUTES AVEC SÉCURITÉ RENFORCÉE
+// ===========================================
+
+// Routes d'authentification avec protection maximale
+app.use('/api/auth', 
+  authRateLimit, 
+  bruteForceProtection,
+  dictionaryAttackProtection,
+  securityLogger('auth'), 
+  timingAttackProtection, 
+  require('./routes/auth')
+);
 app.use('/api/users', require('./routes/users'));
 app.use('/api/users', require('./routes/settings'));
 app.use('/api/users/dashboard', require('./routes/dashboard'));
@@ -79,7 +158,7 @@ app.use('/api/conversations', require('./routes/simple-conversations'));
 app.use('/api/conversations', require('./routes/simple-messages'));
 
 // Routes de compatibilité (ancien système)
-app.use('/api/messages', require('./routes/messages_extended')); // Ancien système
+app.use('/api/messages-old', require('./routes/messages_extended')); // Ancien système
 app.use('/api/conversations-old', require('./routes/conversations')); // Ancien système
 
 app.use('/api/supplier', require('./routes/supplier-registration'));
@@ -94,8 +173,10 @@ app.use('/api/events', require('./routes/events')); // Routes événements
 app.use('/api/blog', require('./routes/blog')); // Routes blog
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/documents', require('./routes/documents'));
+app.use('/api/profile-photo', require('./routes/profile-photo')); // Routes photos de profil
 
 app.use('/api/health', require('./routes/health')); // Route de santé
+app.use('/api/security', require('./routes/security-monitor')); // Monitoring de sécurité
 
 // Routes publiques pour les filtres
 app.get('/api/sectors', async (req, res) => {
@@ -180,13 +261,16 @@ app.get('/api/cities', async (req, res) => {
     }
 });
 
+// Route pour les paramètres admin
+app.use('/api/admin/settings', require('./routes/admin-settings'));
+
 // Routes de test
 app.get('/', (req, res) => {
     res.json({
         message: 'API E-commerce Alibaba - Serveur actif',
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
-        socketIO: 'Disponible sur ws://localhost:' + (process.env.PORT || 3000)
+        socketIO: 'Disponible sur ws://localhost:' + (process.env.PORT || 3001)
     });
 });
 
@@ -199,7 +283,7 @@ app.get('/socket-test', (req, res) => {
         cors: {
             origins: process.env.CORS_ORIGIN 
                 ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-                : ["http://localhost:5173", "http://localhost:8080", "http://localhost:3000"]
+                : ["http://localhost:5173", "http://localhost:8080", "http://localhost:3001"]
         },
         timestamp: new Date().toISOString()
     });
@@ -252,7 +336,7 @@ app.use((err, req, res, next) => {
     res.status(500).json({ error: 'Erreur serveur interne' });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Vérification de la configuration avant démarrage
 console.log('🔧 Configuration détectée:');

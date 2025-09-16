@@ -38,9 +38,72 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
             WHERE role_id = 1 AND statut = 'actif'
         `);
 
+        // Total des produits
+        const [totalProduits] = await db.execute(`
+            SELECT COUNT(*) as total 
+            FROM produits 
+            WHERE statut = 'actif'
+        `);
+
+        // Vérifier si la table commandes existe
+        let totalCommandes = [{ total: 0, chiffre_affaires: 0 }];
+        let nouvellesCommandes = [{ total: 0, montant: 0 }];
+        
+        try {
+            const [tables] = await db.execute(`
+                SELECT TABLE_NAME 
+                FROM INFORMATION_SCHEMA.TABLES 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'commandes'
+            `);
+            
+            if (tables.length > 0) {
+                // Total des commandes
+                totalCommandes = await db.execute(`
+                    SELECT COUNT(*) as total, SUM(total_ttc) as chiffre_affaires
+                    FROM commandes
+                `);
+                totalCommandes = totalCommandes[0];
+
+                // Commandes récentes (7 derniers jours)
+                nouvellesCommandes = await db.execute(`
+                    SELECT COUNT(*) as total, SUM(total_ttc) as montant
+                    FROM commandes 
+                    WHERE date_commande >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+                `);
+                nouvellesCommandes = nouvellesCommandes[0];
+            }
+        } catch (error) {
+            console.log('⚠️ Table commandes non accessible:', error.message);
+        }
+
+        // Utilisateurs récents (7 derniers jours)
+        const [nouveauxUtilisateurs] = await db.execute(`
+            SELECT COUNT(*) as total 
+            FROM utilisateurs 
+            WHERE date_inscription >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+        `);
+
+        // Statistiques par statut utilisateur
+        const [statsUtilisateurs] = await db.execute(`
+            SELECT 
+                r.nom as role_nom,
+                u.statut,
+                COUNT(*) as count
+            FROM utilisateurs u
+            JOIN roles r ON u.role_id = r.id
+            GROUP BY r.nom, u.statut
+        `);
+
         res.json({
             total_fournisseurs: totalFournisseurs[0].total,
-            total_acheteurs: totalAcheteurs[0].total
+            total_acheteurs: totalAcheteurs[0].total,
+            total_produits: totalProduits[0].total,
+            total_commandes: Array.isArray(totalCommandes) ? totalCommandes[0].total : totalCommandes.total || 0,
+            chiffre_affaires: Array.isArray(totalCommandes) ? (totalCommandes[0].chiffre_affaires || 0) : (totalCommandes.chiffre_affaires || 0),
+            nouveaux_utilisateurs_7j: nouveauxUtilisateurs[0].total,
+            nouvelles_commandes_7j: Array.isArray(nouvellesCommandes) ? nouvellesCommandes[0].total : nouvellesCommandes.total || 0,
+            ca_7j: Array.isArray(nouvellesCommandes) ? (nouvellesCommandes[0].montant || 0) : (nouvellesCommandes.montant || 0),
+            stats_utilisateurs: statsUtilisateurs
         });
 
     } catch (error) {
@@ -367,6 +430,34 @@ router.get('/reports/multi-supplier-payments', authenticateToken, requireAdmin, 
 // Fonction utilitaire pour créer un log d'audit
 async function createAuditLog(adminId, action, tableName, recordId, oldValues, newValues, req) {
     try {
+        // Vérifier si la table admin_audit_logs existe
+        const [tables] = await db.execute(`
+            SELECT TABLE_NAME 
+            FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'admin_audit_logs'
+        `);
+        
+        if (tables.length === 0) {
+            // Créer la table si elle n'existe pas
+            await db.execute(`
+                CREATE TABLE admin_audit_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    admin_id INT NOT NULL,
+                    action VARCHAR(100) NOT NULL,
+                    table_name VARCHAR(100) NOT NULL,
+                    record_id INT,
+                    old_values JSON,
+                    new_values JSON,
+                    ip_address VARCHAR(45),
+                    user_agent TEXT,
+                    session_id VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (admin_id) REFERENCES utilisateurs(id)
+                )
+            `);
+            console.log('✅ Table admin_audit_logs créée');
+        }
+
         await db.execute(`
             INSERT INTO admin_audit_logs (admin_id, action, table_name, record_id, old_values, new_values, ip_address, user_agent, session_id)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -383,6 +474,7 @@ async function createAuditLog(adminId, action, tableName, recordId, oldValues, n
         ]);
     } catch (error) {
         console.error('Erreur création log audit:', error);
+        // Ne pas faire échouer l'opération principale si le log échoue
     }
 }
 
@@ -433,6 +525,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
                 u.derniere_connexion as derniere_connexion,
                 u.email_verified,
                 u.phone_verified,
+                u.photo_profil,
                 u.suspension_reason,
                 u.suspended_by,
                 u.suspended_at,
@@ -448,8 +541,31 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), parseInt(offset)]);
 
-        // Convertir les dates en chaînes pour éviter les problèmes de sérialisation
+        // Fonction pour formater les dates au format français
+        const formatDateFr = (date) => {
+            if (!date) return null;
+            
+            try {
+                const d = new Date(date);
+                if (isNaN(d.getTime())) return null;
+                
+                const day = d.getDate().toString().padStart(2, '0');
+                const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                const year = d.getFullYear();
+                
+                return `${day}/${month}/${year}`;
+            } catch (error) {
+                return null;
+            }
+        };
+
+        // Convertir les dates et construire les URLs des photos
         users.forEach(user => {
+            // Dates formatées au format français
+            user.date_inscription_fr = formatDateFr(user.date_creation);
+            user.derniere_connexion_fr = formatDateFr(user.derniere_connexion);
+            
+            // Garder aussi les formats ISO pour compatibilité
             if (user.date_creation) {
                 user.date_creation = user.date_creation instanceof Date 
                     ? user.date_creation.toISOString() 
@@ -459,6 +575,18 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
                 user.derniere_connexion = user.derniere_connexion instanceof Date 
                     ? user.derniere_connexion.toISOString() 
                     : user.derniere_connexion.toString();
+            }
+            
+            // Construire l'URL complète de la photo de profil
+            if (user.photo_profil) {
+                if (!user.photo_profil.startsWith('http')) {
+                    const baseUrl = process.env.API_BASE_URL || `http://${process.env.HOST || 'localhost'}:${process.env.PORT || 3001}`;
+                    user.photo_profil_url = `${baseUrl}${user.photo_profil}`;
+                } else {
+                    user.photo_profil_url = user.photo_profil;
+                }
+            } else {
+                user.photo_profil_url = null;
             }
         });
 
@@ -684,6 +812,7 @@ router.get('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
                 u.derniere_connexion as derniere_connexion,
                 u.email_verified,
                 u.phone_verified,
+                u.photo_profil,
                 u.suspension_reason,
                 u.suspended_by,
                 u.suspended_at,
@@ -719,7 +848,37 @@ router.get('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
             }
         }
 
-        // Construire la réponse
+        // Construire l'URL de la photo de profil
+        let photo_profil_url = null;
+        if (userData.photo_profil) {
+            if (!userData.photo_profil.startsWith('http')) {
+                const baseUrl = process.env.API_BASE_URL || `http://${process.env.HOST || 'localhost'}:${process.env.PORT || 3001}`;
+                photo_profil_url = `${baseUrl}${userData.photo_profil}`;
+            } else {
+                photo_profil_url = userData.photo_profil;
+            }
+        }
+
+        // Fonction pour formater les dates au format français
+        const formatDateFr = (date) => {
+            if (!date) return null;
+            
+            try {
+                const d = new Date(date);
+                if (isNaN(d.getTime())) return null;
+                
+                const day = d.getDate().toString().padStart(2, '0');
+                const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                const year = d.getFullYear();
+                
+                return `${day}/${month}/${year}`;
+            } catch (error) {
+                console.error('Erreur formatage date:', error);
+                return null;
+            }
+        };
+
+        // Construire la réponse (SANS la section stats pour supprimer "Statistiques d'activité")
         const response = {
             id: userData.id,
             nom: userData.nom,
@@ -729,10 +888,15 @@ router.get('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
             role_id: userData.role_id,
             role_nom: userData.role_nom,
             statut: userData.statut,
-            date_inscription: userData.date_inscription instanceof Date 
+            photo_profil: userData.photo_profil,
+            photo_profil_url: photo_profil_url,
+            // Dates formatées au format français DD/MM/YYYY
+            date_inscription: formatDateFr(userData.date_inscription),
+            date_inscription_iso: userData.date_inscription instanceof Date 
                 ? userData.date_inscription.toISOString() 
                 : userData.date_inscription?.toString(),
-            derniere_connexion: userData.derniere_connexion instanceof Date 
+            derniere_connexion: formatDateFr(userData.derniere_connexion),
+            derniere_connexion_iso: userData.derniere_connexion instanceof Date 
                 ? userData.derniere_connexion.toISOString() 
                 : userData.derniere_connexion?.toString(),
             email_verified: userData.email_verified || false,
@@ -743,13 +907,8 @@ router.get('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
             notes_admin: userData.notes_admin,
             ...(entrepriseData && {
                 entreprise: entrepriseData
-            }),
-            stats: {
-                nombre_commandes: 0,
-                montant_total_commandes: 0,
-                nombre_produits: 0,
-                derniere_activite: null
-            }
+            })
+            // SUPPRESSION de la section stats pour enlever "Statistiques d'activité"
         };
 
         console.log('✅ Réponse construite avec succès');
@@ -766,19 +925,17 @@ router.get('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 
 // PUT /api/admin/users/:id - Modifier un utilisateur
 router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
-    const connection = await db.getConnection();
-    
     try {
-        await connection.beginTransaction();
+        console.log('🔧 Modification utilisateur ID:', req.params.id);
+        console.log('🔧 Données reçues:', req.body);
 
-        // Récupérer les anciennes valeurs pour l'audit
-        const [oldUser] = await connection.execute(
+        // Vérifier que l'utilisateur existe
+        const [oldUser] = await db.execute(
             'SELECT * FROM utilisateurs WHERE id = ?',
             [req.params.id]
         );
 
         if (oldUser.length === 0) {
-            await connection.rollback();
             return res.status(404).json({ error: 'Utilisateur non trouvé' });
         }
 
@@ -797,56 +954,106 @@ router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
 
         // Vérifier que l'email n'est pas déjà utilisé par un autre utilisateur
         if (email && email !== oldUser[0].email) {
-            const [existingUser] = await connection.execute(
+            const [existingUser] = await db.execute(
                 'SELECT id FROM utilisateurs WHERE email = ? AND id != ?',
                 [email, req.params.id]
             );
 
             if (existingUser.length > 0) {
-                await connection.rollback();
                 return res.status(409).json({ error: 'Un autre utilisateur utilise déjà cet email' });
             }
         }
 
+        // Construire la requête UPDATE dynamiquement
+        const updateFields = [];
+        const updateValues = [];
+
+        if (nom !== undefined) {
+            updateFields.push('nom = ?');
+            updateValues.push(nom);
+        }
+        if (prenom !== undefined) {
+            updateFields.push('prenom = ?');
+            updateValues.push(prenom);
+        }
+        if (email !== undefined) {
+            updateFields.push('email = ?');
+            updateValues.push(email);
+        }
+        if (telephone !== undefined) {
+            updateFields.push('telephone = ?');
+            updateValues.push(telephone);
+        }
+        if (role_id !== undefined) {
+            updateFields.push('role_id = ?');
+            updateValues.push(role_id);
+        }
+        if (statut !== undefined) {
+            updateFields.push('statut = ?');
+            updateValues.push(statut);
+        }
+        if (email_verified !== undefined) {
+            updateFields.push('email_verified = ?');
+            updateValues.push(email_verified);
+        }
+        if (phone_verified !== undefined) {
+            updateFields.push('phone_verified = ?');
+            updateValues.push(phone_verified);
+        }
+        if (two_factor_enabled !== undefined) {
+            updateFields.push('two_factor_enabled = ?');
+            updateValues.push(two_factor_enabled);
+        }
+        if (notes_admin !== undefined) {
+            updateFields.push('notes_admin = ?');
+            updateValues.push(notes_admin);
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({ error: 'Aucune donnée à mettre à jour' });
+        }
+
         // Mettre à jour l'utilisateur
-        await connection.execute(`
-            UPDATE utilisateurs SET
-                nom = COALESCE(?, nom),
-                prenom = COALESCE(?, prenom),
-                email = COALESCE(?, email),
-                telephone = COALESCE(?, telephone),
-                role_id = COALESCE(?, role_id),
-                statut = COALESCE(?, statut),
-                email_verified = COALESCE(?, email_verified),
-                phone_verified = COALESCE(?, phone_verified),
-                two_factor_enabled = COALESCE(?, two_factor_enabled),
-                notes_admin = COALESCE(?, notes_admin),
-                updated_at = NOW()
+        updateValues.push(req.params.id);
+        await db.execute(`
+            UPDATE utilisateurs SET ${updateFields.join(', ')}
             WHERE id = ?
-        `, [nom, prenom, email, telephone, role_id, statut, email_verified, phone_verified, two_factor_enabled, notes_admin, req.params.id]);
+        `, updateValues);
 
-        // Créer le log d'audit
-        await createAuditLog(
-            req.user.id,
-            'update_user',
-            'utilisateurs',
-            req.params.id,
-            oldUser[0],
-            req.body,
-            req
-        );
+        console.log('✅ Utilisateur mis à jour avec succès');
 
-        await connection.commit();
+        // Créer le log d'audit (sans bloquer en cas d'erreur)
+        try {
+            await createAuditLog(
+                req.user.id,
+                'update_user',
+                'utilisateurs',
+                req.params.id,
+                oldUser[0],
+                req.body,
+                req
+            );
+        } catch (auditError) {
+            console.warn('⚠️ Erreur log audit (non bloquant):', auditError.message);
+        }
 
         // Récupérer l'utilisateur mis à jour
-        const [updatedUser] = await connection.execute(`
+        const [updatedUser] = await db.execute(`
             SELECT 
                 u.id, u.nom, u.prenom, u.email, u.telephone, u.role_id,
-                r.nom as role_nom, u.statut, u.email_verified, u.updated_at
+                r.nom as role_nom, u.statut, u.email_verified, u.photo_profil
             FROM utilisateurs u
             LEFT JOIN roles r ON u.role_id = r.id
             WHERE u.id = ?
         `, [req.params.id]);
+
+        // Construire l'URL de la photo
+        if (updatedUser[0].photo_profil && !updatedUser[0].photo_profil.startsWith('http')) {
+            const baseUrl = process.env.API_BASE_URL || `http://${process.env.HOST || 'localhost'}:${process.env.PORT || 3001}`;
+            updatedUser[0].photo_profil_url = `${baseUrl}${updatedUser[0].photo_profil}`;
+        } else {
+            updatedUser[0].photo_profil_url = updatedUser[0].photo_profil;
+        }
 
         res.json({
             message: 'Utilisateur mis à jour avec succès',
@@ -854,11 +1061,11 @@ router.put('/users/:id', authenticateToken, requireAdmin, async (req, res) => {
         });
 
     } catch (error) {
-        await connection.rollback();
-        console.error('Erreur modification utilisateur:', error);
-        res.status(500).json({ error: 'Erreur lors de la modification de l\'utilisateur' });
-    } finally {
-        connection.release();
+        console.error('❌ Erreur modification utilisateur:', error);
+        res.status(500).json({ 
+            error: 'Erreur lors de la modification de l\'utilisateur',
+            details: error.message 
+        });
     }
 });
 

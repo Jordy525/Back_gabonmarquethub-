@@ -76,9 +76,25 @@ const optionalAuth = async (req, res, next) => {
 
 const requireRole = (roles) => {
     return (req, res, next) => {
+        console.log('🔍 RequireRole Debug:', {
+            userExists: !!req.user,
+            userRoleId: req.user?.role_id,
+            requiredRoles: roles,
+            hasAccess: req.user && roles.includes(req.user.role_id),
+            url: req.originalUrl
+        });
+
         if (!req.user || !roles.includes(req.user.role_id)) {
-            return res.status(403).json({ error: 'Accès non autorisé' });
+            console.log('❌ Accès refusé pour:', {
+                user: req.user?.email || 'Aucun utilisateur',
+                roleId: req.user?.role_id || 'Aucun rôle',
+                requiredRoles: roles,
+                url: req.originalUrl
+            });
+            return res.status(403).json({ error: 'Accès refusé' });
         }
+        
+        console.log('✅ Accès autorisé pour:', req.user.email, 'sur', req.originalUrl);
         next();
     };
 };

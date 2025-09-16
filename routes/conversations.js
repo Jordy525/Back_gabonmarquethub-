@@ -2,7 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-const { createNotification } = require('./notifications-simple');
+const userNotificationService = require('../services/userNotificationService');
 const {
     conversationRateLimit,
     validateConversationCreation,
@@ -963,12 +963,14 @@ router.post('/:id/messages', authenticateToken, [
                 }
 
                 if (destinataireId) {
-                    await createNotification(
-                        destinataireId,
-                        titreNotification,
-                        contenu.length > 100 ? contenu.substring(0, 100) + '...' : contenu,
-                        'message'
-                    );
+                    await userNotificationService.createNotification({
+                        userId: destinataireId,
+                        type: 'message',
+                        category: 'conversation',
+                        title: titreNotification,
+                        message: contenu.length > 100 ? contenu.substring(0, 100) + '...' : contenu,
+                        relatedConversationId: conv.id
+                    });
                 }
             }
         } catch (notifError) {

@@ -4,16 +4,38 @@ const db = require('../config/database');
 
 class EmailService {
     constructor() {
-        // Configuration du transporteur email
-        this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: process.env.SMTP_PORT || 587,
-            secure: false,
+        // Configuration du transporteur email avec fallback
+        const emailConfig = {
+            host: process.env.EMAIL_HOST || process.env.SMTP_HOST || 'smtp.gmail.com',
+            port: parseInt(process.env.EMAIL_PORT || process.env.SMTP_PORT) || 587,
+            secure: process.env.EMAIL_SECURE === 'true' || process.env.SMTP_SECURE === 'true',
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
+                user: process.env.EMAIL_USER || process.env.SMTP_USER,
+                pass: process.env.EMAIL_PASSWORD || process.env.SMTP_PASS
             }
-        });
+        };
+
+        // Vérifier la configuration
+        if (!emailConfig.auth.user || !emailConfig.auth.pass) {
+            console.warn('⚠️ Configuration email manquante. Les emails ne seront pas envoyés.');
+            console.warn('Configurez EMAIL_USER et EMAIL_PASSWORD dans votre fichier .env');
+        }
+
+        this.transporter = nodemailer.createTransport(emailConfig);
+        
+        // Tester la connexion
+        this.testConnection();
+    }
+
+    // Tester la connexion SMTP
+    async testConnection() {
+        try {
+            await this.transporter.verify();
+            console.log('✅ Connexion SMTP établie avec succès');
+        } catch (error) {
+            console.error('❌ Erreur de connexion SMTP:', error.message);
+            console.error('Vérifiez votre configuration email dans le fichier .env');
+        }
     }
 
     // Générer un token de vérification

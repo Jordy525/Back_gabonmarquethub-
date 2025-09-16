@@ -77,26 +77,6 @@ router.patch('/mark-all-read', authenticateToken, async (req, res) => {
     }
 });
 
-// DELETE /api/notifications/:id - Supprimer une notification
-router.delete('/:id', authenticateToken, async (req, res) => {
-    try {
-        const notificationId = parseInt(req.params.id);
-        const userId = req.user.id;
-
-        if (isNaN(notificationId)) {
-            return res.status(400).json({ error: 'ID de notification invalide' });
-        }
-
-        await userNotificationService.deleteNotification(notificationId, userId);
-
-        res.json({ message: 'Notification supprimée' });
-
-    } catch (error) {
-        console.error('❌ Erreur suppression notification:', error);
-        res.status(500).json({ error: 'Erreur lors de la suppression de la notification' });
-    }
-});
-
 // DELETE /api/notifications/delete-read - Supprimer toutes les notifications lues
 router.delete('/delete-read', authenticateToken, async (req, res) => {
     try {
@@ -121,6 +101,26 @@ router.delete('/delete-read', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('❌ Erreur suppression notifications lues:', error);
         res.status(500).json({ error: 'Erreur lors de la suppression des notifications' });
+    }
+});
+
+// DELETE /api/notifications/:id - Supprimer une notification
+router.delete('/:id', authenticateToken, async (req, res) => {
+    try {
+        const notificationId = parseInt(req.params.id);
+        const userId = req.user.id;
+
+        if (isNaN(notificationId)) {
+            return res.status(400).json({ error: 'ID de notification invalide' });
+        }
+
+        await userNotificationService.deleteNotification(notificationId, userId);
+
+        res.json({ message: 'Notification supprimée' });
+
+    } catch (error) {
+        console.error('❌ Erreur suppression notification:', error);
+        res.status(500).json({ error: 'Erreur lors de la suppression de la notification' });
     }
 });
 

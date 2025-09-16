@@ -5,19 +5,34 @@ const jwt = require('jsonwebtoken');
 
 class SimpleSocketServer {
     constructor(server) {
+        // Construire les origins CORS depuis les variables d'environnement
+        const corsOrigins = [];
+        
+        // Ajouter les URLs depuis les variables d'environnement
+        if (process.env.FRONTEND_URL) corsOrigins.push(process.env.FRONTEND_URL);
+        if (process.env.ADMIN_URL) corsOrigins.push(process.env.ADMIN_URL);
+        if (process.env.API_BASE_URL) corsOrigins.push(process.env.API_BASE_URL);
+        
+        // Ajouter les origins depuis CORS_ORIGIN si défini
+        if (process.env.CORS_ORIGIN) {
+            const additionalOrigins = process.env.CORS_ORIGIN.split(',').map(origin => origin.trim());
+            corsOrigins.push(...additionalOrigins);
+        }
+        
+        // Fallbacks pour le développement si aucune variable n'est définie
+        if (corsOrigins.length === 0) {
+            corsOrigins.push("http://localhost:8080", "http://localhost:3000", "http://localhost:5173");
+        }
+
         this.io = new Server(server, {
             cors: {
-                origin: [
-                    process.env.FRONTEND_URL || "http://localhost:8080",
-                    "http://localhost:3000",
-                    "http://localhost:5173"
-                ],
+                origin: corsOrigins,
                 methods: ["GET", "POST"],
                 credentials: true
             },
             transports: ['websocket', 'polling'],
-            pingTimeout: 60000,
-            pingInterval: 25000
+            pingTimeout: parseInt(process.env.SOCKET_PING_TIMEOUT) || 60000,
+            pingInterval: parseInt(process.env.SOCKET_PING_INTERVAL) || 25000
         });
 
         this.connectedUsers = new Map(); // userId -> Set of socketIds

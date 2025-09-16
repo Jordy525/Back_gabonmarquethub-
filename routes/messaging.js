@@ -42,6 +42,35 @@ const upload = multer({
 
 // ==================== CONVERSATIONS ====================
 
+// GET /api/messages - Liste des conversations (version simplifiée)
+router.get('/', authenticateToken, async (req, res) => {
+    try {
+        console.log('🔍 [Messages] Requête reçue pour /api/messages');
+        const userId = req.user.id;
+        console.log('🔍 [Messages] User ID:', userId);
+
+        // Version simplifiée - retourner un tableau vide pour l'instant
+        res.json({
+            success: true,
+            data: [],
+            pagination: {
+                page: 1,
+                limit: 20,
+                total: 0,
+                totalPages: 0
+            }
+        });
+
+    } catch (error) {
+        console.error('Erreur récupération conversations:', error);
+        console.error('Stack trace:', error.stack);
+        res.status(500).json({ 
+            error: 'Erreur lors de la récupération des conversations',
+            details: error.message 
+        });
+    }
+});
+
 // GET /api/messages/conversations - Liste des conversations de l'utilisateur
 router.get('/conversations', authenticateToken, async (req, res) => {
     try {
@@ -500,6 +529,34 @@ router.patch('/notifications/:id/read', authenticateToken, async (req, res) => {
     }
 });
 
+// ==================== COMPTEURS ====================
+
+// GET /api/messages/unread-count - Nombre de messages non lus
+router.get('/unread-count', authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        const [result] = await db.execute(`
+            SELECT 
+                COALESCE(SUM(c.messages_non_lus_acheteur), 0) as unread_acheteur,
+                COALESCE(SUM(c.messages_non_lus_fournisseur), 0) as unread_fournisseur
+            FROM conversations c
+            WHERE c.acheteur_id = ? OR c.fournisseur_id = ?
+        `, [userId, userId]);
+
+        const unreadCount = result[0].unread_acheteur + result[0].unread_fournisseur;
+
+        res.json({
+            success: true,
+            data: { count: unreadCount }
+        });
+
+    } catch (error) {
+        console.error('Erreur récupération compteur messages non lus:', error);
+        res.status(500).json({ error: 'Erreur lors de la récupération du compteur' });
+    }
+});
+
 // ==================== RECHERCHE ====================
 
 // GET /api/messages/search - Rechercher dans les messages
@@ -590,6 +647,69 @@ router.get('/attachments/:id', authenticateToken, async (req, res) => {
     } catch (error) {
         console.error('Erreur téléchargement fichier:', error);
         res.status(500).json({ error: 'Erreur lors du téléchargement' });
+    }
+});
+
+// POST /api/messages/upload - Upload de fichiers
+router.post('/upload', authenticateToken, upload.single('file'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: 'Aucun fichier fourni' });
+        }
+
+        const { conversation_id, message_id } = req.body;
+        const userId = req.user.id;
+
+        // Vérifier l'accès à la conversation
+        if (conversation_id) {
+            const [conversation] = await db.execute(
+                'SELECT id FROM conversations WHERE id = ? AND (acheteur_id = ? OR fournisseur_id = ?)',
+                [conversation_id, userId, userId]
+            );
+
+            if (conversation.length === 0) {
+                return res.status(403).json({ error: 'Accès refusé à cette conversation' });
+            }
+        }
+
+        // Enregistrer le fichier en base
+        const [result] = await db.execute(`
+            INSERT INTO message_attachments (
+                message_id, 
+                conversation_id, 
+                filename, 
+                original_filename, 
+                file_path, 
+                file_size, 
+                mime_type, 
+                uploaded_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+            message_id || null,
+            conversation_id || null,
+            req.file.filename,
+            req.file.originalname,
+            req.file.path,
+            req.file.size,
+            req.file.mimetype,
+            userId
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                id: result.insertId,
+                filename: req.file.filename,
+                original_filename: req.file.originalname,
+                url: `/api/messages/attachments/${result.insertId}`,
+                size: req.file.size,
+                mime_type: req.file.mimetype
+            }
+        });
+
+    } catch (error) {
+        console.error('Erreur upload fichier:', error);
+        res.status(500).json({ error: 'Erreur lors de l\'upload' });
     }
 });
 

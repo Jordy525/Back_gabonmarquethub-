@@ -5,9 +5,9 @@ require('dotenv').config();
 
 // Configuration de l'API
 const API_CONFIG = {
-  PORT: process.env.PORT || 3000,
+  PORT: process.env.PORT || 3001,
   HOST: process.env.HOST || 'localhost',
-  BASE_URL: process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3000}`,
+  BASE_URL: process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3001}`,
   API_PATH: '/api',
   WS_PATH: '/socket.io',
 };
@@ -21,10 +21,10 @@ const FRONTEND_CONFIG = {
     : [
         'http://localhost:5173',
         'http://localhost:8080', 
-        'http://localhost:3000',
+        'http://localhost:3001',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:8080',
-        'http://127.0.0.1:3000'
+        'http://127.0.0.1:3001'
       ],
 };
 
@@ -81,6 +81,23 @@ const REDIRECT_CONFIG = {
   HOME: '/',
   EMAIL_VERIFICATION: '/verify-email',
   PASSWORD_RESET: '/reset-password',
+  OAUTH_SUCCESS: '/login?oauth=success',
+  OAUTH_ERROR: '/login?oauth=error',
+};
+
+// Configuration OAuth
+const OAUTH_CONFIG = {
+  GOOGLE: {
+    CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
+    CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
+    CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || `${API_CONFIG.BASE_URL}/api/auth/google/callback`,
+  },
+  FACEBOOK: {
+    APP_ID: process.env.FACEBOOK_APP_ID || '',
+    APP_SECRET: process.env.FACEBOOK_APP_SECRET || '',
+    CALLBACK_URL: process.env.FACEBOOK_CALLBACK_URL || `${API_CONFIG.BASE_URL}/api/auth/facebook/callback`,
+  },
+  SESSION_SECRET: process.env.SESSION_SECRET || 'your-session-secret-key-change-in-production',
 };
 
 // Configuration des URLs externes
@@ -121,6 +138,7 @@ module.exports = {
   IMAGE: IMAGE_CONFIG,
   SOCKET: SOCKET_CONFIG,
   REDIRECT: REDIRECT_CONFIG,
+  OAUTH: OAUTH_CONFIG,
   EXTERNAL: EXTERNAL_CONFIG,
   UTILS: {
     buildUrl,
