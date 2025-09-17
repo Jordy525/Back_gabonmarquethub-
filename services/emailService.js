@@ -6,26 +6,26 @@ class EmailService {
     constructor() {
         // Debug des variables d'environnement
         console.log('🔧 [EmailService] Configuration SMTP:');
-        console.log('  - SMTP_HOST:', process.env.SMTP_HOST || 'smtp.gmail.com');
-        console.log('  - SMTP_PORT:', process.env.SMTP_PORT || 587);
-        console.log('  - SMTP_USER:', process.env.SMTP_USER ? '***configuré***' : 'NON CONFIGURÉ');
-        console.log('  - SMTP_PASS:', process.env.SMTP_PASS ? '***configuré***' : 'NON CONFIGURÉ');
+        console.log('  - EMAIL_HOST:', process.env.EMAIL_HOST || 'smtp.gmail.com');
+        console.log('  - EMAIL_PORT:', process.env.EMAIL_PORT || 587);
+        console.log('  - EMAIL_USER:', process.env.EMAIL_USER ? '***configuré***' : 'NON CONFIGURÉ');
+        console.log('  - EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? '***configuré***' : 'NON CONFIGURÉ');
         
         // Vérifier que les variables sont définies
-        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-            console.error('❌ [EmailService] Variables SMTP manquantes!');
-            console.error('   SMTP_USER:', process.env.SMTP_USER ? 'OK' : 'MANQUANT');
-            console.error('   SMTP_PASS:', process.env.SMTP_PASS ? 'OK' : 'MANQUANT');
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+            console.error('❌ [EmailService] Variables EMAIL manquantes!');
+            console.error('   EMAIL_USER:', process.env.EMAIL_USER ? 'OK' : 'MANQUANT');
+            console.error('   EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'OK' : 'MANQUANT');
         }
         
         // Configuration du transporteur email
-         this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: parseInt(process.env.SMTP_PORT) || 587,
+        this.transporter = nodemailer.createTransport({
+            host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+            port: parseInt(process.env.EMAIL_PORT) || 587,
             secure: false,
             auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASSWORD
             }
         });
     }
@@ -364,12 +364,12 @@ class EmailService {
         let notificationId = null;
         
         try {
-            // Vérifier les variables SMTP avant l'envoi
-            if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-                console.error('❌ [EmailService] Variables SMTP manquantes pour l\'envoi:');
-                console.error('   SMTP_USER:', process.env.SMTP_USER ? 'OK' : 'MANQUANT');
-                console.error('   SMTP_PASS:', process.env.SMTP_PASS ? 'OK' : 'MANQUANT');
-                throw new Error('Configuration SMTP incomplète');
+            // Vérifier les variables EMAIL avant l'envoi
+            if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+                console.error('❌ [EmailService] Variables EMAIL manquantes pour l\'envoi:');
+                console.error('   EMAIL_USER:', process.env.EMAIL_USER ? 'OK' : 'MANQUANT');
+                console.error('   EMAIL_PASSWORD:', process.env.EMAIL_PASSWORD ? 'OK' : 'MANQUANT');
+                throw new Error('Configuration EMAIL incomplète');
             }
             
             // Créer la notification en base
@@ -378,7 +378,7 @@ class EmailService {
             // Envoyer l'email
             const info = await this.transporter.sendMail({
 
-                from: `"GabMarketHub" <${process.env.SMTP_USER}>`,
+                from: `"GabMarketHub" <${process.env.EMAIL_USER}>`,
                 to: to,
                 subject: subject,
                 html: htmlContent
