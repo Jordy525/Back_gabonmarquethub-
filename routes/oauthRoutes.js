@@ -1,6 +1,8 @@
 const express = require('express');
 const passport = require('passport');
 const router = express.Router();
+const config = require('../config/environment');
+const oauthService = require('../services/oauthService');
 
 // Route pour l'authentification Google
 router.get('/google', 
@@ -11,10 +13,40 @@ router.get('/google',
 
 // Callback Google
 router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  (req, res) => {
-    // Redirection après connexion réussie
-    res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173');
+  passport.authenticate('google', { 
+    failureRedirect: config.FRONTEND.URL + config.REDIRECT.OAUTH_ERROR 
+  }),
+  async (req, res) => {
+    try {
+      const user = req.user;
+      const token = oauthService.generateToken(user);
+      
+      // Rediriger vers le frontend avec le token
+      const frontendUrl = config.FRONTEND.URL;
+      const userData = encodeURIComponent(JSON.stringify({
+        id: user.id,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        role_id: user.role_id,
+        photo_profil: user.photo_profil
+      }));
+      
+      // Rediriger directement vers le dashboard selon le rôle
+      let dashboardUrl = '/';
+      if (user.role_id === 1) {
+        dashboardUrl = config.REDIRECT.ADMIN_DASHBOARD;
+      } else if (user.role_id === 2) {
+        dashboardUrl = config.REDIRECT.SUPPLIER_DASHBOARD;
+      } else {
+        dashboardUrl = config.REDIRECT.DASHBOARD;
+      }
+      
+      res.redirect(`${frontendUrl}${dashboardUrl}?token=${token}&user=${userData}`);
+    } catch (error) {
+      console.error('Erreur callback Google:', error);
+      res.redirect(config.FRONTEND.URL + config.REDIRECT.OAUTH_ERROR + '&error=oauth_error');
+    }
   }
 );
 
@@ -27,10 +59,40 @@ router.get('/facebook',
 
 // Callback Facebook
 router.get('/facebook/callback',
-  passport.authenticate('facebook', { failureRedirect: '/login' }),
-  (req, res) => {
-    // Redirection après connexion réussie
-    res.redirect(process.env.FRONTEND_URL || 'http://localhost:5173');
+  passport.authenticate('facebook', { 
+    failureRedirect: config.FRONTEND.URL + config.REDIRECT.OAUTH_ERROR 
+  }),
+  async (req, res) => {
+    try {
+      const user = req.user;
+      const token = oauthService.generateToken(user);
+      
+      // Rediriger vers le frontend avec le token
+      const frontendUrl = config.FRONTEND.URL;
+      const userData = encodeURIComponent(JSON.stringify({
+        id: user.id,
+        email: user.email,
+        nom: user.nom,
+        prenom: user.prenom,
+        role_id: user.role_id,
+        photo_profil: user.photo_profil
+      }));
+      
+      // Rediriger directement vers le dashboard selon le rôle
+      let dashboardUrl = '/';
+      if (user.role_id === 1) {
+        dashboardUrl = config.REDIRECT.ADMIN_DASHBOARD;
+      } else if (user.role_id === 2) {
+        dashboardUrl = config.REDIRECT.SUPPLIER_DASHBOARD;
+      } else {
+        dashboardUrl = config.REDIRECT.DASHBOARD;
+      }
+      
+      res.redirect(`${frontendUrl}${dashboardUrl}?token=${token}&user=${userData}`);
+    } catch (error) {
+      console.error('Erreur callback Facebook:', error);
+      res.redirect(config.FRONTEND.URL + config.REDIRECT.OAUTH_ERROR + '&error=oauth_error');
+    }
   }
 );
 
