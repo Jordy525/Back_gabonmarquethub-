@@ -60,7 +60,8 @@ const app = express();
 const server = http.createServer(app);
 
 // Configuration pour les proxies (nécessaire pour Render et les headers X-Forwarded-For)
-app.set('trust proxy', true);
+// En production, faire confiance uniquement au proxy de Render
+app.set('trust proxy', process.env.NODE_ENV === 'production' ? 1 : false);
 
 // Import des routes OAuth
 const oauthRoutes = require('./routes/oauthRoutes');
@@ -140,6 +141,12 @@ app.use('/uploads', (req, res, next) => {
     res.header('Cross-Origin-Resource-Policy', 'cross-origin');
     next();
 }, express.static('uploads'));
+
+// Route pour le favicon (utilise le logo de l'application)
+app.get('/favicon.ico', (req, res) => {
+    // Rediriger vers le logo de l'application ou servir un logo par défaut
+    res.redirect('/uploads/profiles/default-logo.jpg');
+});
 
 // ===========================================
 // ROUTES AVEC SÉCURITÉ RENFORCÉE
