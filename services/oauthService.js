@@ -31,10 +31,9 @@ class OAuthService {
       if (existingUsers.length > 0) {
         const user = existingUsers[0];
         
-        // Vérifier si c'est un acheteur
-        if (user.role_id !== 1) {
-          throw new Error('Seuls les acheteurs peuvent se connecter via OAuth');
-        }
+        // Permettre à tous les utilisateurs de se connecter via OAuth
+        // (acheteurs, fournisseurs, admins)
+        console.log(`✅ Utilisateur OAuth existant trouvé: ${user.email} (role_id: ${user.role_id})`);
 
         // Mettre à jour la photo de profil si fournie
         if (photos && photos[0] && photos[0].value) {
