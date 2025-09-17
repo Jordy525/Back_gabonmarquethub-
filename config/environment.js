@@ -144,6 +144,6 @@ module.exports = {
   EXTERNAL: EXTERNAL_CONFIG,
   UTILS: {
     buildUrl,
-    isValidUrl,
+    isValidUrl
   }
 };
