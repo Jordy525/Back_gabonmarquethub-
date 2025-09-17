@@ -8,6 +8,9 @@ const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require('passport-facebook').Strategy;
 
+// Initialiser Passport
+require('./config/passport');
+
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -283,12 +286,12 @@ app.get('/socket-test', (req, res) => {
         cors: {
             origins: process.env.CORS_ORIGIN 
                 ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
-                : ["http://localhost:5173", "http://localhost:8080", "http://localhost:3001","https://front-gabonmarkethub1.vercel.app"]
+                : ["http://localhost:5173", "http://localhost:8080", "http://localhost:3001"]
         },
         timestamp: new Date().toISOString()
     });
 });
-
+notifyPerformanceStats;JK
 // Gestion des erreurs 404
 app.use('*', (req, res) => {
     res.status(404).json({ error: 'Route non trouvée' });
