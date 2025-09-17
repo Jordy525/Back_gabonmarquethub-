@@ -10,8 +10,10 @@ router.get('/google', (req, res, next) => {
   console.log('🔧 Configuration Google:', {
     clientId: process.env.GOOGLE_CLIENT_ID ? 'Défini' : 'MANQUANT',
     clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Défini' : 'MANQUANT',
-    callbackUrl: config.OAUTH.GOOGLE.CALLBACK_URL
+    callbackUrl: config.OAUTH.GOOGLE.CALLBACK_URL,
+    frontendUrl: config.FRONTEND.URL
   });
+  console.log('🌐 URL de redirection Google:', config.OAUTH.GOOGLE.CALLBACK_URL);
   
   passport.authenticate('google', { 
     scope: ['profile', 'email'] 
@@ -66,11 +68,20 @@ router.get('/google/callback',
 );
 
 // Route pour l'authentification Facebook
-router.get('/facebook',
+router.get('/facebook', (req, res, next) => {
+  console.log('🔍 Tentative de connexion Facebook OAuth');
+  console.log('🔧 Configuration Facebook:', {
+    appId: process.env.FACEBOOK_APP_ID ? 'Défini' : 'MANQUANT',
+    appSecret: process.env.FACEBOOK_APP_SECRET ? 'Défini' : 'MANQUANT',
+    callbackUrl: config.OAUTH.FACEBOOK.CALLBACK_URL,
+    frontendUrl: config.FRONTEND.URL
+  });
+  console.log('🌐 URL de redirection Facebook:', config.OAUTH.FACEBOOK.CALLBACK_URL);
+  
   passport.authenticate('facebook', { 
     scope: ['email'] 
-  })
-);
+  })(req, res, next);
+});
 
 // Callback Facebook
 router.get('/facebook/callback',
