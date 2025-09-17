@@ -5,11 +5,18 @@ const config = require('../config/environment');
 const oauthService = require('../services/oauthService');
 
 // Route pour l'authentification Google
-router.get('/google', 
+router.get('/google', (req, res, next) => {
+  console.log('🔍 Tentative de connexion Google OAuth');
+  console.log('🔧 Configuration Google:', {
+    clientId: process.env.GOOGLE_CLIENT_ID ? 'Défini' : 'MANQUANT',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Défini' : 'MANQUANT',
+    callbackUrl: config.OAUTH.GOOGLE.CALLBACK_URL
+  });
+  
   passport.authenticate('google', { 
     scope: ['profile', 'email'] 
-  })
-);
+  })(req, res, next);
+});
 
 // Callback Google
 router.get('/google/callback',
@@ -18,7 +25,15 @@ router.get('/google/callback',
   }),
   async (req, res) => {
     try {
+      console.log('🔍 Callback Google OAuth reçu');
+      console.log('👤 Utilisateur:', req.user ? 'Présent' : 'Absent');
+      
       const user = req.user;
+      if (!user) {
+        console.error('❌ Aucun utilisateur dans la requête');
+        return res.redirect(config.FRONTEND.URL + config.REDIRECT.OAUTH_ERROR + '&error=no_user');
+      }
+      
       const token = oauthService.generateToken(user);
       
       // Rediriger vers le frontend avec le token
