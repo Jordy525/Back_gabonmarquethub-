@@ -9,7 +9,8 @@ if (config.OAUTH.GOOGLE.CLIENT_ID && config.OAUTH.GOOGLE.CLIENT_SECRET) {
     passport.use(new GoogleStrategy({
         clientID: config.OAUTH.GOOGLE.CLIENT_ID,
         clientSecret: config.OAUTH.GOOGLE.CLIENT_SECRET,
-        callbackURL: config.OAUTH.GOOGLE.CALLBACK_URL
+        callbackURL: config.OAUTH.GOOGLE.CALLBACK_URL,
+        scope: ['profile', 'email']
     }, async (accessToken, refreshToken, profile, done) => {
         try {
             console.log('🔍 Google OAuth Profile:', profile);
