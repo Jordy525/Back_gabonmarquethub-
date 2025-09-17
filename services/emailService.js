@@ -4,10 +4,24 @@ const db = require('../config/database');
 
 class EmailService {
     constructor() {
+        // Debug des variables d'environnement
+        console.log('🔧 [EmailService] Configuration SMTP:');
+        console.log('  - SMTP_HOST:', process.env.SMTP_HOST || 'smtp.gmail.com');
+        console.log('  - SMTP_PORT:', process.env.SMTP_PORT || 587);
+        console.log('  - SMTP_USER:', process.env.SMTP_USER ? '***configuré***' : 'NON CONFIGURÉ');
+        console.log('  - SMTP_PASS:', process.env.SMTP_PASS ? '***configuré***' : 'NON CONFIGURÉ');
+        
+        // Vérifier que les variables sont définies
+        if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+            console.error('❌ [EmailService] Variables SMTP manquantes!');
+            console.error('   SMTP_USER:', process.env.SMTP_USER ? 'OK' : 'MANQUANT');
+            console.error('   SMTP_PASS:', process.env.SMTP_PASS ? 'OK' : 'MANQUANT');
+        }
+        
         // Configuration du transporteur email
-        this.transporter = nodemailer.createTransport({
+        this.transporter = nodemailer.createTransporter({
             host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: process.env.SMTP_PORT || 587,
+            port: parseInt(process.env.SMTP_PORT) || 587,
             secure: false,
             auth: {
                 user: process.env.SMTP_USER,
@@ -350,11 +364,19 @@ class EmailService {
         let notificationId = null;
         
         try {
+            // Vérifier les variables SMTP avant l'envoi
+            if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+                console.error('❌ [EmailService] Variables SMTP manquantes pour l\'envoi:');
+                console.error('   SMTP_USER:', process.env.SMTP_USER ? 'OK' : 'MANQUANT');
+                console.error('   SMTP_PASS:', process.env.SMTP_PASS ? 'OK' : 'MANQUANT');
+                throw new Error('Configuration SMTP incomplète');
+            }
+            
             // Créer la notification en base
             notificationId = await this.createEmailNotification(userId, type, subject, htmlContent);
 
             // Envoyer l'email
-        const info = await this.transporter.sendMail({
+            const info = await this.transporter.sendMail({
 
                 from: `"GabMarketHub" <${process.env.SMTP_USER}>`,
                 to: to,
