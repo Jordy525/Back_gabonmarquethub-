@@ -11,6 +11,10 @@ const FacebookStrategy = require('passport-facebook').Strategy;
 // Initialiser Passport
 require('./config/passport');
 
+// Initialiser OAuth Service
+const oauthService = require('./services/oauthService');
+oauthService.configureStrategies();
+
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
@@ -136,14 +140,25 @@ app.use('/uploads', (req, res, next) => {
 // ===========================================
 
 // Routes d'authentification avec protection maximale
-app.use('/api/auth', 
-  authRateLimit, 
-  bruteForceProtection,
-  dictionaryAttackProtection,
-  securityLogger('auth'), 
-  timingAttackProtection, 
-  require('./routes/auth')
-);
+// Temporairement simplifié pour diagnostiquer le problème
+try {
+  console.log('🔍 Chargement des routes auth...');
+  const authRoutes = require('./routes/auth');
+  console.log('✅ Routes auth chargées avec succès');
+  app.use('/api/auth', 
+    authRateLimit, 
+    bruteForceProtection,
+    dictionaryAttackProtection,
+    securityLogger('auth'), 
+    timingAttackProtection, 
+    authRoutes
+  );
+  console.log('✅ Routes auth configurées avec succès');
+} catch (error) {
+  console.error('❌ Erreur lors du chargement des routes auth:', error);
+  console.error('❌ Stack trace:', error.stack);
+  process.exit(1);
+}
 app.use('/api/users', require('./routes/users'));
 app.use('/api/users', require('./routes/settings'));
 app.use('/api/users/dashboard', require('./routes/dashboard'));
@@ -291,7 +306,7 @@ app.get('/socket-test', (req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-notifyPerformanceStats;JK
+
 // Gestion des erreurs 404
 app.use('*', (req, res) => {
     res.status(404).json({ error: 'Route non trouvée' });
