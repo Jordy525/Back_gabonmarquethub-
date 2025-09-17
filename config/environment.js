@@ -7,7 +7,9 @@ require('dotenv').config();
 const API_CONFIG = {
   PORT: process.env.PORT || 3001,
   HOST: process.env.HOST || 'localhost',
-  BASE_URL: process.env.API_BASE_URL || `http://localhost:${process.env.PORT || 3001}`,
+  BASE_URL: process.env.API_BASE_URL || (process.env.NODE_ENV === 'production' 
+    ? 'https://back-gabonmarquethub.onrender.com' 
+    : `http://localhost:${process.env.PORT || 3001}`),
   API_PATH: '/api',
   WS_PATH: '/socket.io',
 };
