@@ -11,6 +11,9 @@ const FacebookStrategy = require('passport-facebook').Strategy;
 // Initialiser Passport
 require('./config/passport');
 
+const oauthRoutes = require('./routes/oauthRoutes'); 
+app.use('/auth', oauthRoutes);
+
 // Initialiser OAuth Service
 const oauthService = require('./services/oauthService');
 oauthService.configureStrategies();
