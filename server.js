@@ -300,22 +300,28 @@ app.use('/api/admin/settings', require('./routes/admin-settings'));
 
 // Route de test pour la configuration OAuth
 app.get('/api/oauth-config', (req, res) => {
+  const config = require('./config/environment');
   res.json({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID ? 'Défini' : 'MANQUANT',
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Défini' : 'MANQUANT',
-      callbackUrl: process.env.GOOGLE_CALLBACK_URL || `${process.env.API_BASE_URL || 'http://localhost:3001'}/auth/google/callback`
+      callbackUrl: config.OAUTH.GOOGLE.CALLBACK_URL,
+      authUrl: `${config.API.BASE_URL}/auth/google`
     },
     facebook: {
       appId: process.env.FACEBOOK_APP_ID ? 'Défini' : 'MANQUANT',
       appSecret: process.env.FACEBOOK_APP_SECRET ? 'Défini' : 'MANQUANT',
-      callbackUrl: process.env.FACEBOOK_CALLBACK_URL || `${process.env.API_BASE_URL || 'http://localhost:3001'}/auth/facebook/callback`
+      callbackUrl: config.OAUTH.FACEBOOK.CALLBACK_URL,
+      authUrl: `${config.API.BASE_URL}/auth/facebook`
     },
     frontend: {
-      url: process.env.FRONTEND_URL || 'MANQUANT'
+      url: config.FRONTEND.URL
     },
     api: {
-      baseUrl: process.env.API_BASE_URL || 'MANQUANT'
+      baseUrl: config.API.BASE_URL
+    },
+    environment: {
+      nodeEnv: process.env.NODE_ENV || 'development'
     }
   });
 });
