@@ -64,7 +64,7 @@ router.get('/google/callback',
       
       if (user.role_id === 1) {
         // Acheteur
-        dashboardUrl = config.REDIRECT.DASHBOARD;
+        dashboardUrl = '/buyer/dashboard';
         console.log('📱 Redirection vers dashboard acheteur:', dashboardUrl);
       } else if (user.role_id === 2) {
         // Fournisseur
@@ -80,7 +80,7 @@ router.get('/google/callback',
         console.log('🔄 Redirection vers dashboard par défaut:', dashboardUrl);
       }
       
-      const finalUrl = `${frontendUrl}${dashboardUrl}?token=${token}&user=${userData}`;
+      const finalUrl = `${frontendUrl}${dashboardUrl}?oauth=success&token=${token}&user=${userData}`;
       console.log('🌐 URL de redirection finale:', finalUrl);
       
       res.redirect(finalUrl);
@@ -151,7 +151,7 @@ router.get('/facebook/callback',
       
       if (user.role_id === 1) {
         // Acheteur
-        dashboardUrl = config.REDIRECT.DASHBOARD;
+        dashboardUrl = '/buyer/dashboard';
         console.log('📱 Redirection vers dashboard acheteur:', dashboardUrl);
       } else if (user.role_id === 2) {
         // Fournisseur
@@ -167,7 +167,7 @@ router.get('/facebook/callback',
         console.log('🔄 Redirection vers dashboard par défaut:', dashboardUrl);
       }
       
-      const finalUrl = `${frontendUrl}${dashboardUrl}?token=${token}&user=${userData}`;
+      const finalUrl = `${frontendUrl}${dashboardUrl}?oauth=success&token=${token}&user=${userData}`;
       console.log('🌐 URL de redirection finale:', finalUrl);
       
       res.redirect(finalUrl);
