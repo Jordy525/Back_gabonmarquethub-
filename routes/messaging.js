@@ -301,6 +301,11 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
         const { page = 1, limit = 50 } = req.query;
         const offset = (page - 1) * limit;
 
+        console.log('🔍 Messages API - Conversation ID:', conversationId);
+        console.log('🔍 Messages API - User ID:', userId);
+        console.log('🔍 Messages API - Page:', page, 'Limit:', limit);
+        console.log('🔍 Messages API - URL complète:', req.originalUrl);
+
         // Vérifier l'accès
         const [participantCheck] = await db.execute(`
             SELECT 1 FROM conversation_participants 
@@ -373,6 +378,9 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
                 WHERE conversation_id = ? AND user_id = ?
             `, [conversationId, userId]);
         }
+
+        console.log('🔍 Messages API - Nombre de messages trouvés:', processedMessages.length);
+        console.log('🔍 Messages API - Réponse JSON préparée');
 
         res.json({
             messages: processedMessages.reverse(), // Ordre chronologique
