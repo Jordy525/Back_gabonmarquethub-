@@ -8,8 +8,8 @@ const pool = mysql.createPool({
     database: process.env.DB_NAME || 'zigh-portfolio_gabmarkethub',
     port: parseInt(process.env.DB_PORT) || 3306,
     waitForConnections: true,
-    connectionLimit: 2, // Très peu de connexions pour éviter l'erreur
-    queueLimit: 5, // File d'attente réduite
+    connectionLimit: 10, // Augmenté pour la production
+    queueLimit: 0, // Pas de limite de file d'attente
     // Configuration pour connexion distante avec timeouts étendus
     connectTimeout: 60000, // 60 secondes pour établir la connexion
     acquireTimeout: 60000,
