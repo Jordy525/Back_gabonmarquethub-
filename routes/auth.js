@@ -118,13 +118,36 @@ router.post('/register/verify-code', [
 
         const { email, verification_code, mot_de_passe, nom, prenom, telephone, role_id, entreprise } = req.body;
 
-        // Vérifier le code de vérification
+        // Debug: Vérifier le code de vérification
+        console.log('🔍 [Auth] Vérification du code:');
+        console.log('  - Email:', email);
+        console.log('  - Code reçu:', verification_code);
+        console.log('  - Type du code:', typeof verification_code);
+        
         const [tempUsers] = await connection.execute(`
             SELECT * FROM utilisateurs_temp 
             WHERE email = ? AND verification_code = ? AND code_expires_at > UTC_TIMESTAMP()
         `, [email, verification_code]);
 
+        console.log('  - Utilisateurs trouvés:', tempUsers.length);
+        if (tempUsers.length > 0) {
+            console.log('  - Utilisateur temp trouvé:', tempUsers[0]);
+        }
+
         if (tempUsers.length === 0) {
+            // Debug: Vérifier si l'utilisateur existe mais avec un code différent
+            const [tempUsersAll] = await connection.execute(`
+                SELECT * FROM utilisateurs_temp 
+                WHERE email = ? AND code_expires_at > UTC_TIMESTAMP()
+            `, [email]);
+            
+            console.log('  - Utilisateurs temp avec email (tous codes):', tempUsersAll.length);
+            if (tempUsersAll.length > 0) {
+                console.log('  - Code stocké:', tempUsersAll[0].verification_code);
+                console.log('  - Code attendu:', verification_code);
+                console.log('  - Codes identiques:', tempUsersAll[0].verification_code === verification_code);
+            }
+            
             await connection.rollback();
             return res.status(400).json({ error: 'Code de vérification invalide ou expiré' });
         }
