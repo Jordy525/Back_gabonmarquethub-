@@ -59,6 +59,9 @@ const {
 const app = express();
 const server = http.createServer(app);
 
+// Configuration pour les proxies (nécessaire pour Render et les headers X-Forwarded-For)
+app.set('trust proxy', true);
+
 // Import des routes OAuth
 const oauthRoutes = require('./routes/oauthRoutes');
 
