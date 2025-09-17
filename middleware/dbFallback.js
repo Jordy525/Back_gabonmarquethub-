@@ -6,7 +6,8 @@ const dbFallback = (req, res, next) => {
     
     // Intercepter les erreurs de base de données
     res.send = function(data) {
-        if (res.statusCode === 500 && typeof data === 'string' && data.includes('Base')) {
+        if (res.statusCode === 500 && typeof data === 'string' && 
+            (data.includes('Base') || data.includes('max_user_connections') || data.includes('HY000/1203'))) {
             console.log('🔧 Erreur DB détectée, utilisation du fallback pour:', req.path);
             return res.status(200).json(getFallbackData(req.path));
         }
@@ -14,7 +15,8 @@ const dbFallback = (req, res, next) => {
     };
     
     res.json = function(data) {
-        if (res.statusCode === 500 && data.error && data.error.includes('Base')) {
+        if (res.statusCode === 500 && data.error && 
+            (data.error.includes('Base') || data.error.includes('max_user_connections') || data.error.includes('HY000/1203'))) {
             console.log('🔧 Erreur DB détectée, utilisation du fallback pour:', req.path);
             return res.status(200).json(getFallbackData(req.path));
         }
