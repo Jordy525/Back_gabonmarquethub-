@@ -298,6 +298,28 @@ app.get('/api/cities', async (req, res) => {
 // Route pour les paramètres admin
 app.use('/api/admin/settings', require('./routes/admin-settings'));
 
+// Route de test pour la configuration OAuth
+app.get('/api/oauth-config', (req, res) => {
+  res.json({
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID ? 'Défini' : 'MANQUANT',
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET ? 'Défini' : 'MANQUANT',
+      callbackUrl: process.env.GOOGLE_CALLBACK_URL || `${process.env.API_BASE_URL || 'http://localhost:3001'}/auth/google/callback`
+    },
+    facebook: {
+      appId: process.env.FACEBOOK_APP_ID ? 'Défini' : 'MANQUANT',
+      appSecret: process.env.FACEBOOK_APP_SECRET ? 'Défini' : 'MANQUANT',
+      callbackUrl: process.env.FACEBOOK_CALLBACK_URL || `${process.env.API_BASE_URL || 'http://localhost:3001'}/auth/facebook/callback`
+    },
+    frontend: {
+      url: process.env.FRONTEND_URL || 'MANQUANT'
+    },
+    api: {
+      baseUrl: process.env.API_BASE_URL || 'MANQUANT'
+    }
+  });
+});
+
 // Routes de test
 app.get('/', (req, res) => {
     res.json({
@@ -381,6 +403,15 @@ console.log('- DB_USER:', process.env.DB_USER || 'non défini');
 console.log('- DB_PASSWORD:', process.env.DB_PASSWORD ? '***masqué***' : 'MANQUANT');
 console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Défini' : 'MANQUANT');
 console.log('- JWT_EXPIRES_IN:', process.env.JWT_EXPIRES_IN || 'MANQUANT');
+
+// Vérification des variables OAuth
+console.log('🔧 Configuration OAuth:');
+console.log('- GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? 'Défini' : 'MANQUANT');
+console.log('- GOOGLE_CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? 'Défini' : 'MANQUANT');
+console.log('- FACEBOOK_APP_ID:', process.env.FACEBOOK_APP_ID ? 'Défini' : 'MANQUANT');
+console.log('- FACEBOOK_APP_SECRET:', process.env.FACEBOOK_APP_SECRET ? 'Défini' : 'MANQUANT');
+console.log('- FRONTEND_URL:', process.env.FRONTEND_URL || 'MANQUANT');
+console.log('- API_BASE_URL:', process.env.API_BASE_URL || 'MANQUANT');
 
 server.listen(PORT, () => {
     console.log(`✅ Serveur démarré sur le port ${PORT}`);
