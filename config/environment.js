@@ -92,12 +92,12 @@ const OAUTH_CONFIG = {
   GOOGLE: {
     CLIENT_ID: process.env.GOOGLE_CLIENT_ID || '',
     CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || '',
-    CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || `${API_CONFIG.BASE_URL}/api/auth/google/callback`,
+    CALLBACK_URL: process.env.GOOGLE_CALLBACK_URL || `${API_CONFIG.BASE_URL}/auth/google/callback`,
   },
   FACEBOOK: {
     APP_ID: process.env.FACEBOOK_APP_ID || '',
     APP_SECRET: process.env.FACEBOOK_APP_SECRET || '',
-    CALLBACK_URL: process.env.FACEBOOK_CALLBACK_URL || `${API_CONFIG.BASE_URL}/api/auth/facebook/callback`,
+    CALLBACK_URL: process.env.FACEBOOK_CALLBACK_URL || `${API_CONFIG.BASE_URL}/auth/facebook/callback`,
   },
   SESSION_SECRET: process.env.SESSION_SECRET || 'your-session-secret-key-change-in-production',
 };
