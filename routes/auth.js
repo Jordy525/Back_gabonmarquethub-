@@ -36,6 +36,16 @@ router.get('/check-email/:email', async (req, res) => {
 
     } catch (error) {
         console.error('Erreur vérification email:', error);
+        
+        // Gérer spécifiquement les erreurs de connexion DB
+        if (error.message && error.message.includes('max_user_connections')) {
+            console.log('🔧 Erreur de connexion DB détectée, utilisation du fallback');
+            return res.status(200).json({ 
+                error: 'Service temporairement indisponible. Veuillez réessayer dans quelques instants.',
+                fallback: true 
+            });
+        }
+        
         res.status(500).json({ error: 'Erreur lors de la vérification de l\'email' });
     }
 });
