@@ -24,11 +24,10 @@ const FRONTEND_CONFIG = {
         'http://localhost:3001',
         'http://127.0.0.1:5173',
         'http://127.0.0.1:8080',
-        'http://127.0.0.1:3001'
         'http://127.0.0.1:3001',
         'https://front-gabonmarkethub1.vercel.app',
         'https://gabon-trade-hub.vercel.app'
-      ],
+      ]
 };
 
 // Configuration des URLs d'images
