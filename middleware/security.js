@@ -23,9 +23,9 @@ const corsOptions = {
     // Autoriser les URLs de preview Vercel (pattern: *.vercel.app)
     const isVercelPreview = origin && origin.includes('.vercel.app');
     
-    // ✅ Permettre les requêtes sans origin (requêtes preflight, mobile apps, Postman, etc.)
+    // ✅ Permettre les requêtes sans origin (requêtes preflight, mobile apps, Postman, OAuth, etc.)
     if (!origin) {
-      console.log('🔓 CORS: Requête sans origin autorisée (preflight/mobile/API)');
+      console.log('🔓 CORS: Requête sans origin autorisée (preflight/mobile/API/OAuth)');
       return callback(null, true);
     }
     
@@ -51,7 +51,8 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   exposedHeaders: ['X-Total-Count', 'X-Rate-Limit-Remaining'],
-  optionsSuccessStatus: 200 // ✅ Pour les anciens navigateurs
+  optionsSuccessStatus: 200, // ✅ Pour les anciens navigateurs
+  maxAge: 86400 // Cache preflight pour 24h (améliore les performances OAuth)
 };
 
 // Rate limiting global (plus permissif en développement)
