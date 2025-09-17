@@ -329,6 +329,7 @@ router.get('/conversations/:id/messages', authenticateToken, async (req, res) =>
                 CONCAT(sender.prenom, ' ', sender.nom) as sender_name,
                 sender.id as sender_id,
                 sender.role_id as sender_role_id,
+                sender.photo_profil as sender_photo,
                 -- Message parent (pour les réponses)
                 parent.content as parent_content,
                 CONCAT(parent_sender.prenom, ' ', parent_sender.nom) as parent_sender_name,
