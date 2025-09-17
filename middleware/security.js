@@ -20,6 +20,9 @@ const corsOptions = {
       'https://your-production-domain.com'
     ];
     
+    // Autoriser les URLs de preview Vercel (pattern: *.vercel.app)
+    const isVercelPreview = origin && origin.includes('.vercel.app');
+    
     // ✅ Permettre les requêtes sans origin (requêtes preflight, mobile apps, Postman, etc.)
     if (!origin) {
       console.log('🔓 CORS: Requête sans origin autorisée (preflight/mobile/API)');
@@ -29,6 +32,9 @@ const corsOptions = {
     // ✅ Vérifier si l'origin est dans la liste autorisée
     if (allowedOrigins.includes(origin)) {
       console.log('🔓 CORS: Origin autorisé:', origin);
+      callback(null, true);
+    } else if (isVercelPreview) {
+      console.log('🔓 CORS: URL de preview Vercel autorisée:', origin);
       callback(null, true);
     } else {
       console.warn('🚫 CORS: Origin non autorisé:', origin);
