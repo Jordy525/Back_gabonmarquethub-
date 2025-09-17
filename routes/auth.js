@@ -71,6 +71,13 @@ router.post('/register/send-verification', [
         const verificationCode = emailService.generateVerificationCode();
         const codeExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
+        // Debug: Afficher le code généré
+        console.log('🔧 [Auth] Génération du code de vérification:');
+        console.log('  - Email:', email);
+        console.log('  - Code généré:', verificationCode);
+        console.log('  - Type du code:', typeof verificationCode);
+        console.log('  - Expiration:', codeExpiry);
+
         // Créer ou mettre à jour un utilisateur temporaire avec le code
         const [result] = await db.execute(`
             INSERT INTO utilisateurs_temp (
@@ -81,6 +88,15 @@ router.post('/register/send-verification', [
                 code_expires_at = VALUES(code_expires_at),
                 created_at = NOW()
         `, [email, verificationCode, codeExpiry]);
+
+        // Debug: Vérifier ce qui a été stocké
+        const [storedUser] = await db.execute(`
+            SELECT * FROM utilisateurs_temp WHERE email = ?
+        `, [email]);
+        
+        console.log('  - Utilisateur stocké:', storedUser[0]);
+        console.log('  - Code stocké:', storedUser[0]?.verification_code);
+        console.log('  - Type du code stocké:', typeof storedUser[0]?.verification_code);
 
         // Envoyer l'email de vérification
         const userData = { email, prenom: '', nom: '' };
