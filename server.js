@@ -11,9 +11,6 @@ const FacebookStrategy = require('passport-facebook').Strategy;
 // Initialiser Passport
 require('./config/passport');
 
-const oauthRoutes = require('./routes/oauthRoutes'); 
-app.use('/auth', oauthRoutes);
-
 // Initialiser OAuth Service
 const oauthService = require('./services/oauthService');
 oauthService.configureStrategies();
@@ -61,6 +58,9 @@ const {
 
 const app = express();
 const server = http.createServer(app);
+
+// Import des routes OAuth
+const oauthRoutes = require('./routes/oauthRoutes');
 
 // Configuration de la session
 app.use(session({
@@ -141,6 +141,9 @@ app.use('/uploads', (req, res, next) => {
 // ===========================================
 // ROUTES AVEC SÉCURITÉ RENFORCÉE
 // ===========================================
+
+// Routes OAuth
+app.use('/auth', oauthRoutes);
 
 // Routes d'authentification avec protection maximale
 // Temporairement simplifié pour diagnostiquer le problème
